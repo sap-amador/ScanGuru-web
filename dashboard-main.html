@@ -1910,7 +1910,7 @@
 
                 const fd = new FormData();
                 fd.append('file', d.file);
-                fd.append('modality', MODALITY_TO_API[d.modalityCode] || d.modalityCode.toLowerCase());
+                fd.append('modality', d.modalityCode);
                 fd.append('patient_name', d.name);
                 fd.append('patient_mrn',  d.mrn);
                 if (d.age) fd.append('patient_age', d.age);
