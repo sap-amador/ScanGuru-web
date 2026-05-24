@@ -1911,10 +1911,10 @@
                 const fd = new FormData();
                 fd.append('file', d.file);
                 fd.append('modality', d.modalityCode);
-                fd.append('patient_name', d.name);
-                fd.append('patient_mrn',  d.mrn);
-                if (d.age) fd.append('patient_age', d.age);
-                if (d.sex) fd.append('patient_sex', d.sex);
+                fd.append('name', d.name);
+                fd.append('mrn', d.mrn);
+                if (d.age) fd.append('age', d.age);
+                if (d.sex) fd.append('sex', d.sex);
                 if (d.referring) fd.append('referring_physician', d.referring);
                 fd.append('urgency_override', d.urgency);
                 if (d.modalityCode === 'MSK') fd.append('region', d.region);
