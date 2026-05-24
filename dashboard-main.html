@@ -1804,6 +1804,168 @@
         document.getElementById('analysisModal').addEventListener('click', (e) => {
             if (e.target.classList.contains('modal-overlay')) closeModal();
         });
+
+        // ====================================================================
+        // PATCH:analyze-handler v1
+        // Wires up #analyzeBtn → POST /api/v1/studies
+        // Added by patch_dashboard_analyze_handler.py
+        // ====================================================================
+        (function wireAnalyzeButton() {
+            const btn = document.getElementById('analyzeBtn');
+            if (!btn) {
+                console.warn('[analyze-handler] #analyzeBtn not found; nothing to wire');
+                return;
+            }
+
+            // Backend expects lowercase modality codes (cxr, ct_brain, mri_spine, ...)
+            const MODALITY_TO_API = {
+                CXR: 'cxr', CT_BRAIN: 'ct_brain', CT_CHEST: 'ct_chest',
+                MAMMO: 'mammography', DENTAL: 'dental', MSK: 'msk',
+                MRI_SPINE: 'mri_spine', MRI_KNEE: 'mri_knee',
+                MRI_PROSTATE: 'mri_prostate', MRI_BREAST: 'mri_breast',
+                MRI_CARDIAC: 'mri_cardiac', MRI_SHOULDER: 'mri_shoulder',
+                US: 'ultrasound', PET: 'pet'
+            };
+
+            function showError(msg) {
+                let bar = document.getElementById('analyze-error-bar');
+                if (!bar) {
+                    bar = document.createElement('div');
+                    bar.id = 'analyze-error-bar';
+                    bar.style.cssText =
+                        'margin: 8px 0 12px; padding: 10px 14px; border-radius: 8px; ' +
+                        'background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); ' +
+                        'color: #FCA5A5; font-size: 13px; line-height: 1.4;';
+                    const footer = document.querySelector('#analysisModal .modal-footer');
+                    footer.parentNode.insertBefore(bar, footer);
+                }
+                bar.innerHTML =
+                    '<i class="fas fa-exclamation-circle" style="margin-right:6px;"></i>' +
+                    (msg || 'Something went wrong.');
+            }
+
+            function clearError() {
+                const bar = document.getElementById('analyze-error-bar');
+                if (bar) bar.remove();
+            }
+
+            function readModal() {
+                const selectedModalityEl = document.querySelector('.modality-option.selected');
+                const fileEl = document.getElementById('fileInput');
+                return {
+                    name:     (document.getElementById('modal-name').value || '').trim(),
+                    mrn:      (document.getElementById('modal-mrn').value || '').trim(),
+                    age:      (document.getElementById('modal-age').value || '').trim(),
+                    sex:      document.getElementById('modal-sex').value || '',
+                    referring:(document.getElementById('modal-referring').value || '').trim(),
+                    urgency:  document.getElementById('modal-urgency').value || 'routine',
+                    modalityCode: selectedModalityEl ? selectedModalityEl.dataset.modality : '',
+                    region:   (document.getElementById('modal-region') || {}).value || '',
+                    reportType: document.getElementById('modal-report-type').value || 'clinical',
+                    lang:     document.getElementById('modal-lang').value || 'en',
+                    file:     fileEl.files && fileEl.files[0] ? fileEl.files[0] : null
+                };
+            }
+
+            function validate(d) {
+                if (!d.name) return 'Patient name is required.';
+                if (!d.mrn)  return 'MRN is required.';
+                if (!d.modalityCode) return 'Please select a modality.';
+                if (!d.file) return 'Please upload an image file.';
+                if (d.modalityCode === 'MSK' && !d.region) {
+                    return 'Body region is required for MSK studies.';
+                }
+                const maxBytes = 50 * 1024 * 1024;
+                if (d.file.size > maxBytes) {
+                    return `File too large: ${(d.file.size/1024/1024).toFixed(1)} MB (max 50 MB).`;
+                }
+                return null;
+            }
+
+            function setBusy(isBusy, msg) {
+                btn.disabled = isBusy;
+                if (isBusy) {
+                    btn.dataset._origHtml = btn.dataset._origHtml || btn.innerHTML;
+                    btn.innerHTML =
+                        '<i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i>' +
+                        (msg || 'Analyzing…');
+                } else {
+                    if (btn.dataset._origHtml) {
+                        btn.innerHTML = btn.dataset._origHtml;
+                        delete btn.dataset._origHtml;
+                    }
+                }
+            }
+
+            async function submit() {
+                clearError();
+                const d = readModal();
+                const err = validate(d);
+                if (err) { showError(err); return; }
+
+                if (!window.__scanguruAuthedFetch) {
+                    showError('Auth helper missing. Please refresh the page.');
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('file', d.file);
+                fd.append('modality', MODALITY_TO_API[d.modalityCode] || d.modalityCode.toLowerCase());
+                fd.append('patient_name', d.name);
+                fd.append('patient_mrn',  d.mrn);
+                if (d.age) fd.append('patient_age', d.age);
+                if (d.sex) fd.append('patient_sex', d.sex);
+                if (d.referring) fd.append('referring_physician', d.referring);
+                fd.append('urgency_override', d.urgency);
+                if (d.modalityCode === 'MSK') fd.append('region', d.region);
+                fd.append('report_type', d.reportType);
+                fd.append('lang', d.lang);
+
+                setBusy(true, 'Analyzing…');
+                try {
+                    // Heads-up: synchronous AI calls. CXR/Dental/MSK/CT Brain ~10–30s.
+                    // MRI/PET can exceed Railway's 60s request timeout — known issue,
+                    // documented in TROUBLESHOOTING.md §10.2.
+                    const r = await window.__scanguruAuthedFetch('/studies', {
+                        method: 'POST',
+                        body:   fd
+                    });
+
+                    if (r.status === 401) {
+                        sessionStorage.removeItem('scanguru_token');
+                        window.location.href = 'portal-login.html';
+                        return;
+                    }
+
+                    let payload = null;
+                    try { payload = await r.json(); } catch (_) {}
+
+                    if (!r.ok) {
+                        const detail = (payload && (payload.detail || payload.error || payload.message))
+                                     || `HTTP ${r.status}`;
+                        showError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+                        setBusy(false);
+                        return;
+                    }
+
+                    // Success → close modal, refresh dashboard table.
+                    setBusy(false);
+                    closeModal();
+                    // Reload studies list. The IIFE owns the list; easiest reliable
+                    // refresh is a full page reload here. Doctors expect to see the
+                    // new row immediately anyway.
+                    window.location.reload();
+                } catch (e) {
+                    console.error('[analyze-handler] submit failed:', e);
+                    showError('Network error: ' + (e.message || e));
+                    setBusy(false);
+                }
+            }
+
+            btn.addEventListener('click', submit);
+            console.log('[analyze-handler] #analyzeBtn click handler installed');
+        })();
+        // ==================== /PATCH:analyze-handler v1 ====================
     </script>
     <!-- =========================================================
          ScanGuru portal wiring — talks to /api/v1/*
@@ -1922,7 +2084,12 @@
                 tr.addEventListener('click', () => {
                     window.location.href = 'patient-detail.html?study=' + studyBtn.dataset.study;
                 });
-            });
+            }
+        // PATCH:analyze-handler v1 — expose authed/API_BASE to the modal script
+        // so the analyzeBtn click handler can POST through the JWT helper.
+        window.__scanguruAuthedFetch = authed;
+        window.__scanguruApiBase    = API_BASE;
+);
             tbody.querySelectorAll('[data-pdf]').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
