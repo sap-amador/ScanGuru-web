@@ -1990,6 +1990,15 @@
             return fetch(API_BASE + path, Object.assign({}, opts, { headers }));
         }
 
+        // PATCH:analyze-handler v1 — expose authed/API_BASE to the modal script
+
+        // so the analyzeBtn click handler can POST through the JWT helper.
+
+        window.__scanguruAuthedFetch = authed;
+
+        window.__scanguruApiBase    = API_BASE;
+
+
         async function fetchJSON(path) {
             const r = await authed(path);
             if (r.status === 401) {
@@ -2084,12 +2093,7 @@
                 tr.addEventListener('click', () => {
                     window.location.href = 'patient-detail.html?study=' + studyBtn.dataset.study;
                 });
-            }
-        // PATCH:analyze-handler v1 — expose authed/API_BASE to the modal script
-        // so the analyzeBtn click handler can POST through the JWT helper.
-        window.__scanguruAuthedFetch = authed;
-        window.__scanguruApiBase    = API_BASE;
-);
+            });
             tbody.querySelectorAll('[data-pdf]').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
