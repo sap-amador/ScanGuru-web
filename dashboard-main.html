@@ -929,17 +929,19 @@
         
         /* Modality Selection */
         .modality-grid {
+            /* PATCH:compact-cards v1 — tighter gap */
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-bottom: 24px;
+            gap: 10px;
+            margin-bottom: 20px;
         }
         
         .modality-option {
-            padding: 16px;
+            /* PATCH:compact-cards v1 — slimmer */
+            padding: 10px 8px;
             background: var(--bg-tertiary);
             border: 2px solid var(--border);
-            border-radius: 12px;
+            border-radius: 10px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
@@ -955,8 +957,9 @@
         }
         
         .modality-option i {
-            font-size: 28px;
-            margin-bottom: 8px;
+            /* PATCH:compact-cards v1 — smaller icon */
+            font-size: 22px;
+            margin-bottom: 4px;
             color: var(--text-muted);
         }
         
@@ -965,15 +968,145 @@
         }
         
         .modality-option-name {
-            font-size: 12px;
+            /* PATCH:compact-cards v1 — tighter line-height */
+            font-size: 11.5px;
             font-weight: 500;
+            line-height: 1.15;
         }
         
         .modality-option-count {
-            font-size: 10px;
+            /* PATCH:compact-cards v1 */
+            font-size: 9.5px;
             color: var(--text-muted);
-            margin-top: 2px;
+            margin-top: 1px;
+            line-height: 1.1;
         }
+        
+        /* PATCH:success-screen v1 — inline post-analysis PDF view */
+        .success-screen {
+            display: none;
+            padding: 4px 0 0;
+        }
+        .success-screen.active {
+            display: block;
+        }
+        .success-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 18px;
+            background: rgba(34, 197, 94, 0.10);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+        .success-header .check-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(34, 197, 94, 0.20);
+            color: #22c55e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .success-header .success-meta {
+            flex: 1;
+            min-width: 0;
+        }
+        .success-header .success-meta .ss-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        .success-header .success-meta .ss-row {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        .success-header .success-meta .ss-row span {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .success-header .success-meta .ss-row strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .ss-urgency-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .ss-urgency-routine {
+            background: rgba(34, 197, 94, 0.18);
+            color: #22c55e;
+        }
+        .ss-urgency-urgent {
+            background: rgba(245, 158, 11, 0.20);
+            color: #f59e0b;
+        }
+        .ss-urgency-stat, .ss-urgency-critical {
+            background: rgba(239, 68, 68, 0.22);
+            color: #ef4444;
+        }
+        .success-pdf-frame {
+            width: 100%;
+            height: 580px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        /* PATCH:consent v1 — HIPAA/GDPR consent gate */
+        .consent-block {
+            margin-top: 20px;
+            padding: 14px 16px;
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            border-radius: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .consent-block input[type="checkbox"] {
+            margin-top: 3px;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .consent-block label {
+            font-size: 12.5px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .consent-block label strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .consent-block .consent-fine-print {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        .consent-block a {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
         
         /* File Upload */
         .upload-zone {
@@ -1710,14 +1843,61 @@
                     <div class="upload-formats">Supported: DICOM (.dcm), PNG, JPG, JPEG • Max 50MB</div>
                     <input type="file" id="fileInput" accept=".dcm,.png,.jpg,.jpeg" style="display: none;">
                 </div>
+
+                <!-- PATCH:consent v1 — HIPAA/GDPR consent gate -->
+                <div class="consent-block">
+                    <input type="checkbox" id="modal-consent" name="modal-consent">
+                    <label for="modal-consent">
+                        <strong>Patient consent confirmed.</strong>
+                        I confirm the patient (or their legal guardian) has been informed
+                        about AI-assisted analysis and has consented to processing and
+                        storage of this medical image. I have authority to upload under
+                        applicable privacy laws (HIPAA, GDPR, or local equivalents).
+                        <div class="consent-fine-print">
+                            Pilot terms apply. See
+                            <a href="https://scanguru.net/terms" target="_blank" rel="noopener">Terms</a>
+                            and
+                            <a href="https://scanguru.net/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+                        </div>
+                    </label>
+                </div>
+                <!-- /PATCH:consent v1 -->
             </div>
             
+
+            <!-- PATCH:success-screen v1 — shown after a successful upload -->
+            <div class="modal-body success-screen" id="successScreen">
+                <div class="success-header">
+                    <div class="check-icon"><i class="fas fa-check"></i></div>
+                    <div class="success-meta">
+                        <div class="ss-title">Analysis Complete</div>
+                        <div class="ss-row">
+                            <span><i class="fas fa-user-injured"></i> <strong id="ss-patient">—</strong></span>
+                            <span><i class="fas fa-x-ray"></i> <strong id="ss-modality">—</strong></span>
+                            <span><i class="fas fa-stethoscope"></i> <strong id="ss-finding">—</strong></span>
+                            <span><i class="fas fa-percentage"></i> <strong id="ss-confidence">—</strong></span>
+                            <span id="ss-urgency-wrap"><span class="ss-urgency-badge" id="ss-urgency">—</span></span>
+                        </div>
+                    </div>
+                </div>
+                <iframe id="ss-pdf" class="success-pdf-frame" title="Report preview" src="about:blank"></iframe>
+            </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModal()">Cancel</button>
                 <button class="btn-primary" id="analyzeBtn" disabled>
                     <i class="fas fa-magic" style="margin-right: 8px;"></i>
                     Start Analysis
                 </button>
+                <!-- PATCH:success-screen v1 — alternate footer for success mode -->
+                <button class="btn-secondary" id="ssOpenTabBtn" style="display:none;">
+                    <i class="fas fa-external-link-alt" style="margin-right:8px;"></i>
+                    Open in New Tab
+                </button>
+                <button class="btn-primary" id="ssDoneBtn" style="display:none;">
+                    <i class="fas fa-check" style="margin-right:8px;"></i>
+                    Done
+                </button>
+
             </div>
         </div>
     </div>
@@ -1725,6 +1905,11 @@
     <script>
         // Modal functions
         function openModal() {
+            // PATCH:consent v1 — reset consent each time modal opens
+            const consent = document.getElementById('modal-consent');
+            if (consent) consent.checked = false;
+            const btn = document.getElementById('analyzeBtn');
+            if (btn) btn.disabled = true;
             document.getElementById('analysisModal').classList.add('active');
         }
         
@@ -1787,13 +1972,20 @@
             const hasFile = fileInput.files.length > 0;
             const hasName = document.querySelector('input[placeholder="Enter patient name"]').value.length > 0;
             
-            document.getElementById('analyzeBtn').disabled = !(hasModality && hasFile);
+            const hasConsent = (document.getElementById('modal-consent') || {}).checked;
+            document.getElementById('analyzeBtn').disabled = !(hasModality && hasFile && hasConsent);
         }
         
         // Listen for input changes
         document.querySelectorAll('.form-input').forEach(input => {
             input.addEventListener('input', checkFormValidity);
         });
+        // PATCH:consent v1 — re-check validity when consent ticks
+        (function wireConsentValidity() {
+            const c = document.getElementById('modal-consent');
+            if (c) c.addEventListener('change', checkFormValidity);
+        })();
+
         
         // Close modal on escape
         document.addEventListener('keydown', (e) => {
@@ -1911,6 +2103,7 @@
                 const fd = new FormData();
                 fd.append('file', d.file);
                 fd.append('modality', d.modalityCode);
+                fd.append('consent_confirmed', 'true');  // PATCH:consent v1
                 fd.append('name', d.name);
                 fd.append('mrn', d.mrn);
                 if (d.age) fd.append('age', d.age);
@@ -1950,11 +2143,8 @@
 
                     // Success → close modal, refresh dashboard table.
                     setBusy(false);
-                    closeModal();
-                    // Reload studies list. The IIFE owns the list; easiest reliable
-                    // refresh is a full page reload here. Doctors expect to see the
-                    // new row immediately anyway.
-                    window.location.reload();
+                    // PATCH:success-screen v1 — show inline PDF instead of reloading
+                    renderSuccessScreen(payload, d);
                 } catch (e) {
                     console.error('[analyze-handler] submit failed:', e);
                     showError('Network error: ' + (e.message || e));
@@ -1966,6 +2156,116 @@
             console.log('[analyze-handler] #analyzeBtn click handler installed');
         })();
         // ==================== /PATCH:analyze-handler v1 ====================
+
+        // ==================== PATCH:success-screen v1 ====================
+        // Switches the modal from "fill-the-form" mode to "here's-your-report" mode.
+        // Called by the analyze handler on a successful upload (instead of
+        // window.location.reload()).
+        function renderSuccessScreen(payload, modal) {
+            // payload comes from POST /api/v1/studies response.
+            // modal is `d` from readModal() so we know patient name + modality label.
+
+            const MODALITY_LABEL = {
+                CXR: 'Chest X-Ray', CT_BRAIN: 'CT Brain', CT_CHEST: 'CT Chest',
+                MAMMO: 'Mammography', DENTAL: 'Dental', MSK: 'MSK',
+                MRI_SPINE: 'MRI Spine', MRI_KNEE: 'MRI Knee',
+                MRI_PROSTATE: 'MRI Prostate', MRI_BREAST: 'MRI Breast',
+                MRI_CARDIAC: 'MRI Cardiac', MRI_SHOULDER: 'MRI Shoulder',
+                US: 'Ultrasound', PET: 'PET Scan'
+            };
+
+            const studyId = payload && (payload.study_id || payload.id);
+            if (!studyId) {
+                console.warn('[success-screen] No study_id in payload, falling back to reload');
+                window.location.reload();
+                return;
+            }
+
+            // Populate meta row
+            document.getElementById('ss-patient').textContent = modal.name || '—';
+            document.getElementById('ss-modality').textContent =
+                MODALITY_LABEL[modal.modalityCode] || modal.modalityCode;
+
+            const finding = payload.primary_finding || '—';
+            document.getElementById('ss-finding').textContent = finding;
+
+            const conf = payload.confidence;
+            document.getElementById('ss-confidence').textContent =
+                (conf == null) ? '—' : Math.round(conf * 100) + '%';
+
+            // Urgency badge — use payload.urgency if present, else fall back to user-selected
+            const urgency = (payload.urgency || modal.urgency || 'routine').toLowerCase();
+            const urgencyEl = document.getElementById('ss-urgency');
+            urgencyEl.textContent = urgency.toUpperCase();
+            urgencyEl.className = 'ss-urgency-badge ss-urgency-' + urgency;
+
+            // PDF iframe — uses our streaming endpoint. Auth happens server-side
+            // via the JWT in sessionStorage; iframes can't carry custom headers,
+            // so we rely on the same-origin cookie? — no, we use sessionStorage.
+            // The endpoint accepts ?token=<jwt> as a fallback query param. If the
+            // backend doesn't support that yet, the iframe will 401 and we show
+            // a "click Open in New Tab" hint.
+            //
+            // PRAGMATIC v1: just point the iframe at the relative URL. The PDF
+            // endpoint requires auth, so the iframe will fail-load if not
+            // authed. The "Open in New Tab" button is the reliable fallback.
+            const apiBase = window.__scanguruApiBase || '';
+            const pdfUrl  = apiBase + '/studies/' + studyId + '/report.pdf';
+
+            // Try to load the PDF via fetch (with auth) → blob URL → iframe.
+            // Same trick the dashboard's data-pdf button used before the streaming fix.
+            (async () => {
+                try {
+                    const r = await window.__scanguruAuthedFetch('/studies/' + studyId + '/report.pdf');
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const blob = await r.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    document.getElementById('ss-pdf').src = blobUrl;
+                    // Revoke after 5 minutes; long enough to view, short enough to free memory
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 300000);
+                    // Store for Open-in-New-Tab handler
+                    document.getElementById('ssOpenTabBtn').dataset.blobUrl = blobUrl;
+                } catch (e) {
+                    console.error('[success-screen] PDF load failed:', e);
+                    document.getElementById('ss-pdf').srcdoc =
+                        '<div style="padding:24px;font-family:sans-serif;color:#888;">' +
+                        'Could not load PDF inline. Use <b>Open in New Tab</b> to view.</div>';
+                }
+            })();
+
+            // Toggle UI from form mode → success mode
+            document.querySelector('#analysisModal .modal-body:not(.success-screen)')
+                .style.display = 'none';
+            document.getElementById('successScreen').classList.add('active');
+            document.querySelector('#analysisModal .btn-secondary[onclick="closeModal()"]')
+                .style.display = 'none';
+            document.getElementById('analyzeBtn').style.display = 'none';
+            document.getElementById('ssOpenTabBtn').style.display = 'inline-flex';
+            document.getElementById('ssDoneBtn').style.display = 'inline-flex';
+
+            // Clear any stale error bar
+            const bar = document.getElementById('analyze-error-bar');
+            if (bar) bar.remove();
+        }
+
+        // Wire the success-screen buttons (idempotent — runs once at load)
+        (function wireSuccessScreenButtons() {
+            const openBtn = document.getElementById('ssOpenTabBtn');
+            const doneBtn = document.getElementById('ssDoneBtn');
+            if (openBtn) {
+                openBtn.addEventListener('click', () => {
+                    const blobUrl = openBtn.dataset.blobUrl;
+                    if (blobUrl) window.open(blobUrl, '_blank');
+                });
+            }
+            if (doneBtn) {
+                doneBtn.addEventListener('click', () => {
+                    window.location.reload();
+                });
+            }
+        })();
+        // ==================== /PATCH:success-screen v1 ====================
+
     </script>
     <!-- =========================================================
          ScanGuru portal wiring — talks to /api/v1/*
