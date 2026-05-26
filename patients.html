@@ -2,6 +2,67 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script
+        src="https://js-de.sentry-cdn.com/28de1d66020d412bbb94d81ffc7eb5df.min.js"
+        crossorigin="anonymous"
+    ></script>
+    <script>
+        // PATCH:frontend-sentry v1 — Sentry SDK init + PHI scrubbing
+        // Loaded right after Sentry's Loader Script so it's queued before
+        // any other JS runs.
+        if (window.Sentry && typeof window.Sentry.onLoad === 'function') {
+            window.Sentry.onLoad(function () {
+                window.Sentry.init({
+                    environment: 'prod',
+                    tracesSampleRate: 0.10,            // 10% of requests traced
+                    replaysSessionSampleRate: 0,       // NEVER record sessions
+                    replaysOnErrorSampleRate: 0,       // NEVER replay on error (PHI risk)
+                    sendDefaultPii: false,
+                    maxBreadcrumbs: 50,
+                    beforeSend: function (event) {
+                        try {
+                            var req = event.request || {};
+                            // Scrub auth-like headers
+                            if (req.headers && typeof req.headers === 'object') {
+                                ['Authorization','Cookie','X-API-Key','Set-Cookie'].forEach(function (h) {
+                                    if (req.headers[h]) req.headers[h] = '[Filtered]';
+                                    var lower = h.toLowerCase();
+                                    if (req.headers[lower]) req.headers[lower] = '[Filtered]';
+                                });
+                            }
+                            // Scrub token-like query string params
+                            if (typeof req.query_string === 'string') {
+                                req.query_string = req.query_string.replace(
+                                    /(token|access_token|jwt|mrn|patient_id)=[^&]*/gi,
+                                    '$1=[Filtered]'
+                                );
+                            }
+                            // Don't ship request bodies — may contain MRN/name on uploads
+                            if (req.data !== undefined) req.data = '[Filtered]';
+                        } catch (e) {
+                            // Never let scrubbing throw — Sentry would drop the event
+                        }
+                        return event;
+                    }
+                });
+
+                // Tag each event with the logged-in doctor's email, if known.
+                // The login flow stores user info under sessionStorage.scanguruUser.
+                try {
+                    var raw = sessionStorage.getItem('scanguruUser');
+                    if (raw) {
+                        var u = JSON.parse(raw);
+                        if (u && u.email) {
+                            window.Sentry.setUser({
+                                email: u.email,
+                                id: u.id || undefined
+                            });
+                        }
+                    }
+                } catch (e) { /* sessionStorage may be unavailable in some contexts */ }
+            });
+        }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patients | ScanGuru</title>
     <link rel="icon" type="image/png" href="assets/scanguru-mark.png">
