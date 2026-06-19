@@ -280,6 +280,12 @@
     </style>
 </head>
 <body>
+    <div class="sg-lang-switch" style="position:fixed;top:16px;right:18px;z-index:9999;">
+        <button id="langBtn" aria-label="Select language" style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,.7);border:1px solid #334155;color:#E2E8F0;border-radius:10px;padding:6px 11px;font-size:13px;cursor:pointer;backdrop-filter:blur(6px);">
+            <span class="lang-flag">🌐</span><span class="lang-code">EN</span>
+        </button>
+        <div id="langDropdown" style="display:none;position:absolute;right:0;top:calc(100% + 8px);min-width:248px;max-height:420px;overflow-y:auto;background:#1E293B;border:1px solid #334155;border-radius:12px;box-shadow:0 16px 40px rgba(2,6,23,.45);z-index:10000;"></div>
+    </div>
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-logo">
@@ -289,39 +295,39 @@
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section">
-                <div class="nav-section-title">Overview</div>
+                <div class="nav-section-title" data-i18n="portal.nav_overview">Overview</div>
                 <a href="dashboard-main.html" class="nav-item">
-                    <i class="fas fa-th-large"></i><span>Dashboard</span>
+                    <i class="fas fa-th-large"></i><span data-i18n="portal.nav_dashboard">Dashboard</span>
                 </a>
-                <a href="#" class="nav-item"><i class="fas fa-chart-line"></i><span>Analytics</span></a>
+                <a href="#" class="nav-item"><i class="fas fa-chart-line"></i><span data-i18n="portal.nav_analytics">Analytics</span></a>
             </div>
             <div class="nav-section">
-                <div class="nav-section-title">Studies</div>
+                <div class="nav-section-title" data-i18n="portal.nav_studies_hdr">Studies</div>
                 <a href="dashboard-main.html" class="nav-item">
-                    <i class="fas fa-folder"></i><span>All Studies</span>
+                    <i class="fas fa-folder"></i><span data-i18n="portal.nav_all_studies">All Studies</span>
                 </a>
                 <a href="dashboard-main.html" class="nav-item">
-                    <i class="fas fa-exclamation-triangle"></i><span>Critical</span>
+                    <i class="fas fa-exclamation-triangle"></i><span data-i18n="portal.nav_critical">Critical</span>
                 </a>
                 <a href="dashboard-main.html" class="nav-item">
-                    <i class="fas fa-clock"></i><span>Pending Review</span>
+                    <i class="fas fa-clock"></i><span data-i18n="portal.nav_pending">Pending Review</span>
                 </a>
             </div>
             <div class="nav-section">
-                <div class="nav-section-title">Management</div>
+                <div class="nav-section-title" data-i18n="portal.nav_management">Management</div>
                 <a href="#" class="nav-item active">
-                    <i class="fas fa-users"></i><span>Patients</span>
+                    <i class="fas fa-users"></i><span data-i18n="portal.nav_patients">Patients</span>
                 </a>
                 <a href="dashboard-main.html" class="nav-item">
-                    <i class="fas fa-file-medical"></i><span>Reports</span>
+                    <i class="fas fa-file-medical"></i><span data-i18n="portal.nav_reports">Reports</span>
                 </a>
-                <a href="#" class="nav-item"><i class="fas fa-user-md"></i><span>Physicians</span></a>
+                <a href="#" class="nav-item"><i class="fas fa-user-md"></i><span data-i18n="portal.nav_physicians">Physicians</span></a>
             </div>
             <div class="nav-section">
-                <div class="nav-section-title">Settings</div>
-                <a href="#" class="nav-item"><i class="fas fa-sliders-h"></i><span>Preferences</span></a>
-                <a href="#" class="nav-item"><i class="fas fa-plug"></i><span>Integrations</span></a>
-                <a href="#" class="nav-item"><i class="fas fa-code"></i><span>API Access</span></a>
+                <div class="nav-section-title" data-i18n="portal.nav_settings_hdr">Settings</div>
+                <a href="#" class="nav-item"><i class="fas fa-sliders-h"></i><span data-i18n="portal.nav_preferences">Preferences</span></a>
+                <a href="#" class="nav-item"><i class="fas fa-plug"></i><span data-i18n="portal.nav_integrations">Integrations</span></a>
+                <a href="#" class="nav-item"><i class="fas fa-code"></i><span data-i18n="portal.nav_api">API Access</span></a>
             </div>
         </nav>
         <div class="sidebar-footer">
@@ -339,12 +345,12 @@
     <main class="main-content">
         <div class="page-header">
             <div>
-                <h1 class="page-title">Patients</h1>
+                <h1 class="page-title" data-i18n="portal.patients_title">Patients</h1>
                 <div class="page-subtitle" id="patients-subtitle">Loading…</div>
             </div>
             <div class="header-search">
                 <i class="fas fa-search"></i>
-                <input type="text" id="patient-search" placeholder="Search by name, MRN, or patient ID…">
+                <input type="text" id="patient-search" placeholder="Search by name, MRN, or patient ID…" data-i18n-placeholder="portal.search_ph">
             </div>
             <button class="btn-primary" id="add-patient-btn">
                 <i class="fas fa-user-plus"></i>
@@ -355,19 +361,19 @@
         <div class="mini-stats">
             <div class="mini-stat">
                 <div class="mini-stat-value" id="stat-total-patients">—</div>
-                <div class="mini-stat-label">Total Patients</div>
+                <div class="mini-stat-label" data-i18n="portal.st_total_patients">Total Patients</div>
             </div>
             <div class="mini-stat">
                 <div class="mini-stat-value" id="stat-with-studies">—</div>
-                <div class="mini-stat-label">With Studies</div>
+                <div class="mini-stat-label" data-i18n="portal.st_with_studies">With Studies</div>
             </div>
             <div class="mini-stat">
                 <div class="mini-stat-value" id="stat-new-this-month">—</div>
-                <div class="mini-stat-label">New This Month</div>
+                <div class="mini-stat-label" data-i18n="portal.st_new_month">New This Month</div>
             </div>
             <div class="mini-stat">
                 <div class="mini-stat-value" id="stat-male-female">—</div>
-                <div class="mini-stat-label">M / F</div>
+                <div class="mini-stat-label" data-i18n="portal.st_mf">M / F</div>
             </div>
         </div>
 
@@ -376,12 +382,12 @@
                 <table class="patients-table">
                     <thead>
                         <tr>
-                            <th>Patient</th>
-                            <th>MRN</th>
-                            <th>Sex / Age</th>
-                            <th>Studies</th>
-                            <th>Last Study</th>
-                            <th style="text-align:right;">Actions</th>
+                            <th data-i18n="portal.th_patient">Patient</th>
+                            <th data-i18n="portal.th_mrn">MRN</th>
+                            <th data-i18n="portal.th_sex_age">Sex / Age</th>
+                            <th data-i18n="portal.th_studies">Studies</th>
+                            <th data-i18n="portal.th_last_study">Last Study</th>
+                            <th style="text-align:right;" data-i18n="portal.th_actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="patients-body">
@@ -392,8 +398,8 @@
             <div class="pagination" id="pagination" style="display:none;">
                 <div id="pagination-info">—</div>
                 <div class="pagination-btns">
-                    <button class="pagination-btn" id="page-prev">Previous</button>
-                    <button class="pagination-btn" id="page-next">Next</button>
+                    <button class="pagination-btn" id="page-prev" data-i18n="portal.pg_prev">Previous</button>
+                    <button class="pagination-btn" id="page-next" data-i18n="portal.pg_next">Next</button>
                 </div>
             </div>
         </div>
@@ -402,48 +408,48 @@
     <div class="modal-overlay" id="add-patient-modal">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title">Add Patient</div>
+                <div class="modal-title" data-i18n="portal.add_patient">Add Patient</div>
                 <button class="modal-close" id="add-patient-close"><i class="fas fa-times"></i></button>
             </div>
             <div class="form-group">
                 <label class="form-label">Patient Name *</label>
-                <input type="text" id="ap-name" class="form-input" placeholder="Full name">
+                <input type="text" id="ap-name" class="form-input" placeholder="Full name" data-i18n-placeholder="portal.ph_fullname">
             </div>
             <div class="form-group">
                 <label class="form-label">MRN *</label>
-                <input type="text" id="ap-mrn" class="form-input" placeholder="Medical Record Number" style="font-family: monospace;">
+                <input type="text" id="ap-mrn" class="form-input" placeholder="Medical Record Number" data-i18n-placeholder="portal.ph_mrn" style="font-family: monospace;">
             </div>
             <div class="form-group row">
                 <div>
-                    <label class="form-label">Date of Birth</label>
+                    <label class="form-label" data-i18n="portal.dob">Date of Birth</label>
                     <input type="date" id="ap-dob" class="form-input">
                 </div>
                 <div>
-                    <label class="form-label">Sex</label>
+                    <label class="form-label" data-i18n="portal.sex">Sex</label>
                     <select id="ap-sex" class="form-select">
                         <option value="">Select…</option>
-                        <option value="M">Male</option>
-                        <option value="F">Female</option>
-                        <option value="O">Other</option>
+                        <option value="M" data-i18n="portal.male">Male</option>
+                        <option value="F" data-i18n="portal.female">Female</option>
+                        <option value="O" data-i18n="portal.other">Other</option>
                     </select>
                 </div>
             </div>
             <div class="form-group row">
                 <div>
-                    <label class="form-label">Phone</label>
+                    <label class="form-label" data-i18n="portal.phone">Phone</label>
                     <input type="tel" id="ap-phone" class="form-input" placeholder="Optional">
                 </div>
                 <div>
-                    <label class="form-label">Email</label>
+                    <label class="form-label" data-i18n="portal.email2">Email</label>
                     <input type="email" id="ap-email" class="form-input" placeholder="Optional">
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">Address</label>
+                <label class="form-label" data-i18n="portal.address">Address</label>
                 <input type="text" id="ap-address" class="form-input" placeholder="Optional">
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" id="add-patient-cancel">Cancel</button>
+                <button class="btn-secondary" id="add-patient-cancel" data-i18n="portal.cancel">Cancel</button>
                 <button class="btn-primary" id="add-patient-save">
                     <i class="fas fa-check"></i>
                     Add Patient
@@ -708,5 +714,7 @@
         loadPatients();
     })();
     </script>
+    <!-- ScanGuru i18n v6.3.0 — shared engine (portal.* namespace, RTL, auto-init) -->
+    <script src="https://cdn.jsdelivr.net/gh/sap-amador/scanguru.net@main/scanguru-i18n-v6-full-site.js"></script>
 </body>
 </html>
