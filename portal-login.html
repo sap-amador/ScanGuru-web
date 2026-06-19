@@ -643,6 +643,13 @@
     </style>
 </head>
 <body>
+    <!-- Language switcher (wired by the shared ScanGuru i18n engine) -->
+    <div class="sg-lang-switch" style="position:fixed;top:18px;right:20px;z-index:9999;">
+        <button id="langBtn" aria-label="Select language" style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,.65);border:1px solid #334155;color:#E2E8F0;border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer;backdrop-filter:blur(6px);">
+            <span class="lang-flag">🌐</span><span class="lang-code">EN</span>
+        </button>
+        <div id="langDropdown" style="display:none;position:absolute;right:0;top:calc(100% + 8px);min-width:248px;max-height:420px;overflow-y:auto;background:#1E293B;border:1px solid #334155;border-radius:12px;box-shadow:0 16px 40px rgba(2,6,23,.45);z-index:10000;"></div>
+    </div>
     <!-- Left Panel - Branding -->
     <div class="brand-panel">
         <div class="brand-content">
@@ -652,8 +659,8 @@
             </div>
             
             <div class="brand-headline">
-                <h1>Welcome to Your<br><span>AI Radiology Hub</span></h1>
-                <p>Access your dashboard to monitor integrations, view AI analysis results, and manage your radiology workflow — all from one secure portal.</p>
+                <h1><span data-i18n="portal.login_welcome_pre">Welcome to Your</span><br><span data-i18n="portal.login_welcome_accent">AI Radiology Hub</span></h1>
+                <p data-i18n="portal.login_brand_desc">Access your dashboard to monitor integrations, view AI analysis results, and manage your radiology workflow — all from one secure portal.</p>
                 
                 <div class="feature-pills">
                     <div class="feature-pill">
@@ -678,15 +685,15 @@
             <div class="brand-stats">
                 <div class="stat-item">
                     <div class="stat-value">500+</div>
-                    <div class="stat-label">Hospitals Connected</div>
+                    <div class="stat-label" data-i18n="portal.stat_hospitals">Hospitals Connected</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">10M+</div>
-                    <div class="stat-label">Studies Analyzed</div>
+                    <div class="stat-label" data-i18n="portal.stat_studies">Studies Analyzed</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">99.9%</div>
-                    <div class="stat-label">Uptime SLA</div>
+                    <div class="stat-label" data-i18n="portal.stat_uptime">Uptime SLA</div>
                 </div>
             </div>
         </div>
@@ -695,26 +702,26 @@
     <!-- Right Panel - Login Form -->
     <div class="login-panel">
         <div class="login-header">
-            <h2>Sign in to Portal</h2>
-            <p>Enter your credentials to access your dashboard</p>
+            <h2 data-i18n="portal.signin_title">Sign in to Portal</h2>
+            <p data-i18n="portal.signin_sub">Enter your credentials to access your dashboard</p>
         </div>
         
         <form class="login-form" onsubmit="handleLogin(event)">
             <div class="form-error" id="formError">
                 <i class="fas fa-exclamation-circle"></i>
-                <span>Invalid email or password. Please try again.</span>
+                <span data-i18n="portal.error_invalid">Invalid email or password. Please try again.</span>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Email Address</label>
+                <label class="form-label" data-i18n="portal.label_email">Email Address</label>
                 <div class="input-wrapper">
-                    <input type="email" class="form-input" placeholder="you@hospital.org" required>
+                    <input type="email" class="form-input" placeholder="you@hospital.org" data-i18n-placeholder="portal.ph_email" required>
                     <i class="fas fa-envelope"></i>
                 </div>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Password</label>
+                <label class="form-label" data-i18n="portal.label_password">Password</label>
                 <div class="input-wrapper">
                     <input type="password" class="form-input" id="passwordInput" placeholder="••••••••••" required>
                     <i class="fas fa-lock"></i>
@@ -730,18 +737,18 @@
                     <div class="checkbox-custom">
                         <i class="fas fa-check"></i>
                     </div>
-                    <span class="checkbox-label">Remember me</span>
+                    <span class="checkbox-label" data-i18n="portal.remember">Remember me</span>
                 </label>
-                <a href="#" class="forgot-link">Forgot password?</a>
+                <a href="#" class="forgot-link" data-i18n="portal.forgot">Forgot password?</a>
             </div>
             
             <button type="submit" class="btn btn-primary" id="loginBtn">
-                <span class="btn-text">Sign In</span>
+                <span class="btn-text" data-i18n="portal.signin_btn">Sign In</span>
                 <div class="btn-spinner"></div>
             </button>
             
             <div class="divider">
-                <span>or continue with</span>
+                <span data-i18n="portal.or_continue">or continue with</span>
             </div>
             
             <div class="sso-buttons">
@@ -752,30 +759,30 @@
                         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                     </svg>
-                    Google SSO
+                    <span data-i18n="portal.sso_google">Google SSO</span>
                 </button>
                 <button type="button" class="btn-sso">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11.4 24H1.2C.5 24 0 23.5 0 22.8V1.2C0 .5.5 0 1.2 0h21.6c.7 0 1.2.5 1.2 1.2v21.6c0 .7-.5 1.2-1.2 1.2H16.5v-9.3h3.1l.5-3.6h-3.6V8.6c0-1 .3-1.7 1.8-1.7h1.9V3.7c-.3 0-1.4-.1-2.7-.1-2.7 0-4.5 1.6-4.5 4.6v2.7H9.9v3.6h3.1V24h-1.6z" fill="#1877F2"/>
                     </svg>
-                    SAML SSO
+                    <span data-i18n="portal.sso_saml">SAML SSO</span>
                 </button>
             </div>
         </form>
         
         <div class="security-badge">
             <i class="fas fa-shield-alt"></i>
-            Protected by 256-bit SSL encryption • HIPAA Compliant
+            <span data-i18n="portal.security_badge">Protected by 256-bit SSL encryption • HIPAA Compliant</span>
         </div>
         
         <div class="login-footer">
-            <p>Don't have an account? <a href="mailto:sales@scanguru.net">Contact Sales</a></p>
+            <p><span data-i18n="portal.no_account">Don't have an account?</span> <a href="mailto:sales@scanguru.net" data-i18n="portal.contact_sales">Contact Sales</a></p>
         </div>
         
         <div class="help-link">
             <a href="#">
                 <i class="fas fa-headset"></i>
-                Need help? Contact support
+                <span data-i18n="portal.need_help">Need help? Contact support</span>
             </a>
         </div>
     </div>
@@ -846,5 +853,7 @@
             window.location.href = 'dashboard-main.html';
         }
     </script>
+    <!-- ScanGuru i18n v6.3.0 — shared engine (loads portal.* namespace, RTL, auto-init) -->
+    <script src="https://cdn.jsdelivr.net/gh/sap-amador/scanguru.net@main/scanguru-i18n-v6-full-site.js"></script>
 </body>
 </html>
