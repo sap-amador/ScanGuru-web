@@ -802,14 +802,14 @@
             
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab active">
-                    Study History
+                <button class="tab active" data-tab="study_history">
+                    <span data-i18n="portal.tab_study_history">Study History</span>
                     <span class="tab-badge" id="tab-count">0</span>
                 </button>
-                <button class="tab">Reports</button>
-                <button class="tab">Demographics</button>
-                <button class="tab">Insurance</button>
-                <button class="tab">Notes</button>
+                <button class="tab" data-tab="reports" data-i18n="portal.nav_reports">Reports</button>
+                <button class="tab" data-tab="demographics" data-i18n="portal.tab_demographics">Demographics</button>
+                <button class="tab" data-tab="insurance" data-i18n="portal.tab_insurance">Insurance</button>
+                <button class="tab" data-tab="notes" data-i18n="portal.tab_notes">Notes</button>
             </div>
             
             <!-- Content Grid -->
@@ -819,10 +819,10 @@
                     <div class="section-header">
                         <h2 class="section-title" data-i18n="portal.study_timeline">Study Timeline</h2>
                         <select style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; color: var(--text-primary); font-size: 13px;">
-                            <option>All Modalities</option>
-                            <option>Mammography</option>
-                            <option>Chest X-Ray</option>
-                            <option>CT Scans</option>
+                            <option data-i18n="portal.opt_all_modalities">All Modalities</option>
+                            <option data-i18n="portal.opt_mammography">Mammography</option>
+                            <option data-i18n="portal.opt_cxr">Chest X-Ray</option>
+                            <option data-i18n="portal.opt_ct">CT Scans</option>
                         </select>
                     </div>
                     
@@ -1100,50 +1100,46 @@
         // --- Tab switching ---
         let _allStudies = [];
         function setActiveTab(tabName) {
-            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tabs .tab').forEach(t => {
-                if (t.textContent.trim().startsWith(tabName)) t.classList.add('active');
-            });
+            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+            var T = (window.ScanGuruI18n && ScanGuruI18n.t) ? function(k){ return ScanGuruI18n.t('portal.' + k); } : function(k){ return k; };
             const tlBody = document.getElementById('timeline-body');
             if (!tlBody) return;
-            if (tabName === 'Study History') {
+            if (tabName === 'study_history') {
                 renderTimeline(_allStudies);
-            } else if (tabName === 'Reports') {
+            } else if (tabName === 'reports') {
                 const withPdf = _allStudies.filter(s => s.status === 'completed' || s.status === 'awaiting_review');
                 if (!withPdf.length) {
-                    tlBody.innerHTML = '<div style="padding:48px;text-align:center;color:var(--text-muted);">No completed reports yet.</div>';
+                    tlBody.innerHTML = '<div style="padding:48px;text-align:center;color:var(--text-muted);">' + T('empty_no_reports') + '</div>';
                 } else {
                     renderTimeline(withPdf);
                 }
-            } else if (tabName === 'Demographics') {
+            } else if (tabName === 'demographics') {
                 tlBody.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);">'
                                  + '<i class="fas fa-arrow-right" style="font-size:24px;margin-bottom:12px;display:block;"></i>'
-                                 + 'Patient demographics are shown in the right sidebar.</div>';
-            } else if (tabName === 'Insurance') {
+                                 + T('empty_demographics') + '</div>';
+            } else if (tabName === 'insurance') {
                 tlBody.innerHTML = '<div style="padding:48px;text-align:center;color:var(--text-muted);">'
                                  + '<i class="fas fa-shield-alt" style="font-size:24px;margin-bottom:12px;display:block;"></i>'
-                                 + 'Insurance management coming soon.<br><span style="font-size:13px;">Backend CRUD endpoints pending.</span></div>';
-            } else if (tabName === 'Notes') {
+                                 + T('empty_insurance') + '<br><span style="font-size:13px;">' + T('backend_pending') + '</span></div>';
+            } else if (tabName === 'notes') {
                 tlBody.innerHTML = '<div style="padding:48px;text-align:center;color:var(--text-muted);">'
                                  + '<i class="fas fa-sticky-note" style="font-size:24px;margin-bottom:12px;display:block;"></i>'
-                                 + 'Clinical notes coming soon.<br><span style="font-size:13px;">Backend CRUD endpoints pending.</span></div>';
+                                 + T('empty_notes') + '<br><span style="font-size:13px;">' + T('backend_pending') + '</span></div>';
             }
         }
         function renderTimeline(items) {
             const tlBody = document.getElementById('timeline-body');
             if (!items || !items.length) {
-                tlBody.innerHTML = '<div style="padding:48px;text-align:center;color:var(--text-muted);">No studies in this view.</div>';
+                tlBody.innerHTML = '<div style="padding:48px;text-align:center;color:var(--text-muted);">' + ((window.ScanGuruI18n&&ScanGuruI18n.t)?ScanGuruI18n.t('portal.empty_no_studies_view'):'No studies in this view.') + '</div>';
             } else {
                 tlBody.innerHTML = items.map(renderTimelineItem).join('');
                 bindReportButtons(tlBody);
             }
         }
+        document.addEventListener('languageChanged', function(){ var a=document.querySelector('.tabs .tab.active'); if(a) setActiveTab(a.dataset.tab); });
         document.querySelectorAll('.tabs .tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                const label = tab.textContent.trim().split('\n')[0].trim();
-                // Strip the "Study History" prefix from the first tab (badge inside makes textContent include the number)
-                const tabName = label.startsWith('Study History') ? 'Study History' : label;
-                setActiveTab(tabName);
+                setActiveTab(tab.dataset.tab);
             });
         });
 
