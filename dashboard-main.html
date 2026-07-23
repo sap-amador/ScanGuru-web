@@ -1964,6 +1964,10 @@
                     <i class="fas fa-check" style="margin-right:8px;"></i>
                     Done
                 </button>
+                <button class="btn-primary" id="ssNewBtn" style="display:none;">
+                    <i class="fas fa-plus" style="margin-right:8px;"></i>
+                    New Analysis
+                </button>
 
             </div>
         </div>
@@ -1980,8 +1984,64 @@
             document.getElementById('analysisModal').classList.add('active');
         }
         
+        // PATCH:modal-reuse v1 — return the modal from success mode to form mode
+        // so several studies can be run back-to-back without a page reload.
+        function resetModalToForm() {
+            // Release the previous PDF blob (renderSuccessScreen parks it here).
+            const openBtn = document.getElementById('ssOpenTabBtn');
+            if (openBtn && openBtn.dataset.blobUrl) {
+                try { URL.revokeObjectURL(openBtn.dataset.blobUrl); } catch (e) {}
+                delete openBtn.dataset.blobUrl;
+            }
+            const ssPdf = document.getElementById('ss-pdf');
+            if (ssPdf) { ssPdf.removeAttribute('srcdoc'); ssPdf.src = 'about:blank'; }
+
+            // Success panel off, form panel back on.
+            const successEl = document.getElementById('successScreen');
+            if (successEl) successEl.classList.remove('active');
+            const formBody = document.querySelector('#analysisModal .modal-body:not(.success-screen)');
+            if (formBody) formBody.style.display = '';
+
+            // Footer back to form mode.
+            const cancelBtn = document.querySelector('#analysisModal .btn-secondary[onclick="closeModal()"]');
+            if (cancelBtn) cancelBtn.style.display = '';
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            if (analyzeBtn) { analyzeBtn.style.display = ''; analyzeBtn.disabled = true; }
+            ['ssOpenTabBtn', 'ssDoneBtn', 'ssNewBtn'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            // Clear patient-specific fields. Report type + language are left as-is:
+            // a user running a batch usually wants the same settings each time.
+            ['modal-name', 'modal-mrn', 'modal-age', 'modal-referring'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const sexEl = document.getElementById('modal-sex');
+            if (sexEl) sexEl.value = '';
+            const urgEl = document.getElementById('modal-urgency');
+            if (urgEl) urgEl.value = 'routine';
+            const regionEl = document.getElementById('modal-region');
+            if (regionEl) regionEl.value = '';
+            const regionRow = document.getElementById('modal-region-row');
+            if (regionRow) regionRow.style.display = 'none';
+            const fileEl = document.getElementById('fileInput');
+            if (fileEl) fileEl.value = '';
+            const consentEl = document.getElementById('modal-consent');
+            if (consentEl) consentEl.checked = false;
+            document.querySelectorAll('#analysisModal .modality-option.selected')
+                .forEach(function (el) { el.classList.remove('selected'); });
+
+            // Drop any stale error bar.
+            const bar = document.getElementById('analyze-error-bar');
+            if (bar) bar.remove();
+        }
+
         function closeModal() {
             document.getElementById('analysisModal').classList.remove('active');
+            // Reset on close too, so reopening never shows the previous result.
+            try { resetModalToForm(); } catch (e) { console.warn('[modal-reuse] reset failed:', e); }
         }
         
         // Modality selection
@@ -2309,6 +2369,8 @@
             document.getElementById('analyzeBtn').style.display = 'none';
             document.getElementById('ssOpenTabBtn').style.display = 'inline-flex';
             document.getElementById('ssDoneBtn').style.display = 'inline-flex';
+            const ssNew = document.getElementById('ssNewBtn');
+            if (ssNew) ssNew.style.display = 'inline-flex';
 
             // Clear any stale error bar
             const bar = document.getElementById('analyze-error-bar');
@@ -2328,6 +2390,14 @@
             if (doneBtn) {
                 doneBtn.addEventListener('click', () => {
                     window.location.reload();
+                });
+            }
+            const newBtn = document.getElementById('ssNewBtn');
+            if (newBtn) {
+                newBtn.addEventListener('click', () => {
+                    resetModalToForm();
+                    const nameEl = document.getElementById('modal-name');
+                    if (nameEl) nameEl.focus();
                 });
             }
         })();
