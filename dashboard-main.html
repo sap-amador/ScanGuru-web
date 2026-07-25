@@ -308,6 +308,9 @@
             align-items: center;
             justify-content: space-between;
             padding: 0 32px;
+            /* PATCH:dashboard-gaps v1 — the language pill is position:fixed at
+               top-right, so "New Analysis" was sliding underneath it. */
+            padding-right: 104px;
             z-index: 50;
         }
         
@@ -697,6 +700,13 @@
             color: var(--urgent);
         }
         
+        /* PATCH:dashboard-gaps v1 — a failed analysis is not an urgency level.
+           It previously borrowed the routine style, so a study the AI never
+           completed rendered as a green tick reading "nothing urgent here". */
+        .urgency-badge.failed {
+            background: rgba(148, 163, 184, 0.15);
+            color: var(--text-secondary);
+        }
         .urgency-badge.routine {
             background: var(--routine-bg);
             color: var(--routine);
@@ -2951,31 +2961,60 @@
         function renderRow(s) {
             const p = s.patient || {};
             const conf = s.confidence == null ? null : Math.round(s.confidence * 100);
-            const urg  = URGENCY_STYLES[s.urgency] || URGENCY_STYLES.routine;
             const icon = MODALITY_ICONS[s.modality] || 'fa-file-medical';
+
+            // PATCH:dashboard-gaps v1 — a study whose analysis failed has no
+            // finding and no report. It was rendering the literal string the
+            // backend stored ("Error") as though it were a diagnosis, at 0%
+            // confidence, behind a green ROUTINE tick, with a PDF button that
+            // fetches nothing. On a worklist that reads as "checked, all fine".
+            const failed = s.status === 'failed'
+                        || (s.primary_finding || '').trim().toLowerCase() === 'error';
+
+            const urg = failed
+                ? { cls: 'failed', icon: 'fa-exclamation-triangle', label: 'Failed', key: 'urg_failed' }
+                : (URGENCY_STYLES[s.urgency] || URGENCY_STYLES.routine);
+
+            // Model labels arrive underscored (Enlarged_Pulmonary_Arteries).
+            const finding = failed
+                ? '<span style="color:var(--text-muted);">Analysis did not complete</span>'
+                : (s.primary_finding
+                       ? s.primary_finding.replace(/_/g, ' ')
+                       : '<span style="color:var(--text-muted);">\u2014</span>');
+
             const findColor = conf == null ? 'text-muted'
                             : conf >= 85 ? 'critical' : conf >= 65 ? 'urgent' : 'pending';
+
+            const summary = failed
+                ? 'Analysis did not complete'
+                : [s.primary_finding ? s.primary_finding.replace(/_/g, ' ') : null,
+                   conf != null ? conf + '%' : null,
+                   timeAgo(s.study_datetime)].filter(Boolean).join(' \u00b7 ');
 
             return ''
               + '<tr>'
               +   '<td><div class="patient-cell"><div class="patient-avatar">' + initials(p.name) + '</div>'
-              +       '<div><div class="patient-name">' + (p.name || '—') + '</div>'
+              +       '<div><div class="patient-name">' + (p.name || '\u2014') + '</div>'
               +       '<div class="patient-id">' + (p.visible_id || '') + '</div></div></div></td>'
               +   '<td><span class="modality-badge"><i class="fas ' + icon + '"></i> ' + s.modality + '</span></td>'
               +   '<td><div class="finding-cell"><div class="finding-name">'
-              +     (s.primary_finding || '<span style="color:var(--text-muted);">—</span>')
+              +     finding
               +     '</div>'
-              +     (conf != null
+              +     ((conf != null && !failed)
                        ? '<div class="finding-confidence">' + confidenceBar(conf, findColor) + '</div>'
                        : '')
               +     '</div></td>'
               +   '<td><span class="urgency-badge ' + urg.cls + '"><i class="fas ' + urg.icon + '"></i> ' + tr(urg.key, urg.label) + '</span></td>'
               +   '<td style="color: var(--text-muted); font-size: 13px;">' + timeAgo(s.study_datetime) + '</td>'
               +   '<td><div class="action-btns">'
-              +     '<button class="action-btn" title="View report" data-pdf="' + s.id + '"'
-              +       ' data-modality="' + (s.modality || '') + '"'
-              +       ' data-summary="' + esc([s.primary_finding, conf != null ? conf + '%' : null, timeAgo(s.study_datetime)].filter(Boolean).join(' \u00b7 ')) + '"'
-              +       '><i class="fas fa-file-pdf"></i></button>'
+              +     (failed
+                       // No report exists, so offering to open one is a dead end.
+                       ? '<button class="action-btn" title="No report \u2014 analysis failed" disabled'
+                       + ' style="opacity:.35;cursor:not-allowed;"><i class="fas fa-file-pdf"></i></button>'
+                       : '<button class="action-btn" title="View report" data-pdf="' + s.id + '"'
+                       + ' data-modality="' + (s.modality || '') + '"'
+                       + ' data-summary="' + esc(summary) + '"'
+                       + '><i class="fas fa-file-pdf"></i></button>')
               +     '<button class="action-btn" title="View Details" data-study="' + s.id + '"><i class="fas fa-eye"></i></button>'
               +   '</div></td>'
               + '</tr>';
