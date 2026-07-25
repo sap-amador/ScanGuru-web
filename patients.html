@@ -521,7 +521,14 @@
         var _searchTerm = '';
 
         function renderRow(p) {
-            var age = ageFromDob(p.dob);
+            // PATCH:age-fallback v1 — the intake modal stores a plain age, not a
+            // DOB, so p.dob is null for most records and this column showed sex
+            // only. Same fix as patient-detail: DOB wins when present.
+            var dobAge = ageFromDob(p.dob);
+            var rawAge = (p.age != null && p.age !== '') ? p.age
+                       : ((p.age_years != null && p.age_years !== '') ? p.age_years : null);
+            var age = dobAge != null ? dobAge
+                    : ((rawAge != null && !isNaN(Number(rawAge))) ? Number(rawAge) : null);
             var sexAge = [(p.sex || '—'), (age != null ? age + ' y' : '')].filter(Boolean).join(' / ');
             return ''
                 + '<tr data-patient-id="' + p.id + '">'
