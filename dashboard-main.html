@@ -2872,6 +2872,13 @@
             return Math.floor(sec / 86400) + ' d ago';
         }
 
+        // PATCH:report-variants v1 — attribute-safe escaping for data-summary
+        function esc(v) {
+            return String(v == null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
         const MODALITY_ICONS = {
             CXR: 'fa-lungs', CT_BRAIN: 'fa-brain', CT_CHEST: 'fa-lungs',
             MAMMO: 'fa-ribbon', DENTAL: 'fa-tooth', MSK: 'fa-bone',
@@ -2925,7 +2932,10 @@
               +   '<td><span class="urgency-badge ' + urg.cls + '"><i class="fas ' + urg.icon + '"></i> ' + tr(urg.key, urg.label) + '</span></td>'
               +   '<td style="color: var(--text-muted); font-size: 13px;">' + timeAgo(s.study_datetime) + '</td>'
               +   '<td><div class="action-btns">'
-              +     '<button class="action-btn" title="View Report" data-pdf="' + s.id + '"><i class="fas fa-file-pdf"></i></button>'
+              +     '<button class="action-btn" title="View report" data-pdf="' + s.id + '"'
+              +       ' data-modality="' + (s.modality || '') + '"'
+              +       ' data-summary="' + esc([s.primary_finding, conf != null ? conf + '%' : null, timeAgo(s.study_datetime)].filter(Boolean).join(' \u00b7 ')) + '"'
+              +       '><i class="fas fa-file-pdf"></i></button>'
               +     '<button class="action-btn" title="View Details" data-study="' + s.id + '"><i class="fas fa-eye"></i></button>'
               +   '</div></td>'
               + '</tr>';
@@ -2940,19 +2950,23 @@
                     window.location.href = 'patient-detail.html?study=' + studyBtn.dataset.study;
                 });
             });
+            // PATCH:report-variants v1 — one button, three renderings. Opening
+            // the shared tabbed viewer keeps the row light (three buttons per
+            // row would triple the action column) and avoids implying the study
+            // produced three separate reports.
             tbody.querySelectorAll('[data-pdf]').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
+                btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    try {
-                        const r = await authed('/studies/' + btn.dataset.pdf + '/report.pdf');
-                        if (!r.ok) throw new Error('HTTP ' + r.status);
-                        const blob = await r.blob();
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, '_blank');
-                        setTimeout(() => URL.revokeObjectURL(url), 60000);
-                    } catch (e) {
-                        alert('Failed to load report: ' + e.message);
+                    if (!window.ScanGuruReportViewer) {
+                        alert('Report viewer failed to load. Refresh the page and try again.');
+                        return;
                     }
+                    ScanGuruReportViewer.open({
+                        studyId:     btn.dataset.pdf,
+                        authedFetch: authed,
+                        title:       (btn.dataset.modality || 'Study').replace(/_/g, ' '),
+                        subtitle:    btn.dataset.summary || ''
+                    });
                 });
             });
             tbody.querySelectorAll('[data-study]').forEach(btn => {
@@ -3424,6 +3438,7 @@
     })();
     </script>
     <!-- ScanGuru i18n v6.3.0 — shared engine (portal.* namespace, RTL, auto-init) -->
+    <script src="scanguru-report-viewer.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/sap-amador/scanguru.net@1dd43ef/scanguru-i18n-v6-full-site.js"></script>
 </body>
 </html>

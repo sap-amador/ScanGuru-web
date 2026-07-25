@@ -710,6 +710,29 @@
             color: var(--primary);
             background: var(--primary-bg);
         }
+
+        /* PATCH:report-variants v1 — chips for the three renderings of one study.
+           Colour is deliberately NOT used to distinguish variant: it is already
+           load-bearing for urgency and confidence on this page, and a fourth
+           colour language would compete with the one that drives triage. */
+        .variant-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+        .variant-chip {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 7px 13px; border-radius: 8px;
+            background: transparent; color: var(--text-secondary);
+            border: 1px solid var(--border);
+            font-family: inherit; font-size: 13px; cursor: pointer;
+            transition: border-color .15s, color .15s, background .15s;
+        }
+        .variant-chip i { font-size: 13px; }
+        .variant-chip:hover {
+            border-color: var(--primary); color: var(--primary);
+            background: var(--primary-bg);
+        }
+        .variant-chip.vc-ready { border-style: solid; color: var(--text-primary); }
+        .variant-chip.vc-ondemand { border-style: dashed; color: var(--text-muted); }
+        .variant-chip.vc-unknown { border-style: solid; }
+        .variant-legend { font-size: 11px; color: var(--text-muted); margin-top: 7px; }
     </style>
 </head>
 <body>
@@ -979,12 +1002,48 @@
               +       '<div class="timeline-finding-value">' + finding + '</div>'
               +       (conf != null ? '<div class="timeline-finding-meta">Confidence: ' + conf + '%</div>' : '')
               +     '</div>'
-              +     (s.status === 'failed' ? '' :
-                  '<button class="view-report-btn" data-pdf="' + s.id + '">'
-                + '<i class="fas fa-file-pdf"></i> View Report</button>')
+              +     (s.status === 'failed' ? '' : renderVariantChips(s))
               +   '</div>'
               + '</div>';
         }
+
+        // PATCH:report-variants v1 --------------------------------------------
+        // One study = one prediction = one timeline entry. Clinical / Research /
+        // Patient are three renderings of that analysis, not three reports, so
+        // they render as chips inside the entry rather than as separate rows.
+        const REPORT_VARIANTS = [
+            { id: 'clinical', label: 'Clinical', icon: 'fa-stethoscope' },
+            { id: 'research', label: 'Research', icon: 'fa-microscope'  },
+            { id: 'patient',  label: 'Patient',  icon: 'fa-users'       }
+        ];
+
+        // Which variant was rendered at upload — the others are reconstructed on
+        // demand. The API may or may not expose this; when it doesn't, all three
+        // chips render neutral rather than guessing which one already exists.
+        function generatedVariant(s) {
+            const v = s.report_type || (s.report && s.report.report_type) || null;
+            return v ? String(v).toLowerCase() : null;
+        }
+
+        function renderVariantChips(s) {
+            const known = generatedVariant(s);
+            const chips = REPORT_VARIANTS.map(function (v) {
+                const cls = known === null ? 'vc-unknown'
+                          : (v.id === known ? 'vc-ready' : 'vc-ondemand');
+                const tip = known === null ? 'Open ' + v.label.toLowerCase() + ' report'
+                          : (v.id === known ? 'Generated with this study'
+                                            : 'Generates on first open');
+                return '<button class="variant-chip ' + cls + '" title="' + tip + '"'
+                     +   ' data-study="' + s.id + '" data-variant="' + v.id + '">'
+                     +   '<i class="fas ' + v.icon + '"></i> ' + v.label
+                     + '</button>';
+            }).join('');
+            const legend = known === null ? ''
+                : '<div class="variant-legend">Solid = generated with this study · '
+                  + 'dashed = generates on first open</div>';
+            return '<div class="variant-chips">' + chips + '</div>' + legend;
+        }
+        // ----------------------------------------------------------------------
 
         function renderFindingsSummary(studies) {
             const counts = {};
@@ -1009,6 +1068,33 @@
         }
 
         function bindReportButtons(scope) {
+            // PATCH:report-variants v1 — chips open the shared tabbed viewer at
+            // the chosen variant. The old handler fetched one PDF and dumped it
+            // into a new tab, which gave no way to reach the other two.
+            scope.querySelectorAll('.variant-chip').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const s = (_allStudies || []).find(x => String(x.id) === btn.dataset.study) || {};
+                    const conf = s.confidence == null ? null : Math.round(s.confidence * 100);
+                    const bits = [];
+                    if (s.primary_finding) bits.push(s.primary_finding);
+                    if (conf != null) bits.push(conf + '%');
+                    if (s.study_datetime) bits.push(fmtDateTime(s.study_datetime));
+                    if (!window.ScanGuruReportViewer) {
+                        alert('Report viewer failed to load. Refresh the page and try again.');
+                        return;
+                    }
+                    ScanGuruReportViewer.open({
+                        studyId:     btn.dataset.study,
+                        authedFetch: authed,
+                        variant:     btn.dataset.variant,
+                        title:       (s.modality || 'Study').replace(/_/g, ' '),
+                        subtitle:    bits.join(' · ')
+                    });
+                });
+            });
+
+            // Legacy single-PDF buttons, if any remain elsewhere on the page.
             scope.querySelectorAll('[data-pdf]').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     try {
@@ -1160,6 +1246,7 @@
     })();
     </script>
     <!-- ScanGuru i18n v6.3.0 — shared engine (portal.* namespace, RTL, auto-init) -->
+    <script src="scanguru-report-viewer.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/sap-amador/scanguru.net@1dd43ef/scanguru-i18n-v6-full-site.js"></script>
 </body>
 </html>
