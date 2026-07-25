@@ -171,6 +171,9 @@
             display: flex;
             align-items: center;
             padding: 0 32px;
+            /* PATCH:header-gaps v1 — the language pill is position:fixed at
+               top-right, so the last action button was sliding under it. */
+            padding-right: 104px;
             gap: 16px;
             z-index: 50;
         }
@@ -761,16 +764,18 @@
             <div class="breadcrumb">
                 <a href="dashboard-main.html" data-i18n="portal.nav_dashboard">Dashboard</a>
                 <i class="fas fa-chevron-right" style="font-size: 10px;"></i>
-                <a href="#" data-i18n="portal.nav_patients">Patients</a>
+                <a href="patients.html" data-i18n="portal.nav_patients">Patients</a>
                 <i class="fas fa-chevron-right" style="font-size: 10px;"></i>
-                <span class="current">Maria Johnson</span>
+                <span class="current" id="crumb-patient">Loading…</span>
             </div>
             <div class="header-actions">
-                <button class="btn btn-outline">
+                <button class="btn btn-outline" id="print-btn">
                     <i class="fas fa-print"></i>
                     Print
                 </button>
-                <button class="btn btn-outline">
+                <button class="btn btn-outline" id="share-btn" disabled
+                        title="Sharing endpoint not wired yet — coming soon"
+                        style="opacity:.45;cursor:not-allowed;">
                     <i class="fas fa-share-alt"></i>
                     Share
                 </button>
@@ -986,7 +991,8 @@
             const icon = MODALITY_ICONS[s.modality] || 'fa-file-medical';
             const urgCls = URGENCY_CLASS[s.urgency] || 'routine';
             const conf = s.confidence == null ? null : Math.round(s.confidence * 100);
-            const finding = s.primary_finding || (s.status === 'failed' ? '<em>Analysis failed</em>' : '—');
+            const finding = s.primary_finding ? s.primary_finding.replace(/_/g, ' ')
+                          : (s.status === 'failed' ? '<em>Analysis failed</em>' : '—');
 
             return ''
               + '<div class="timeline-item">'
@@ -1077,7 +1083,7 @@
                     const s = (_allStudies || []).find(x => String(x.id) === btn.dataset.study) || {};
                     const conf = s.confidence == null ? null : Math.round(s.confidence * 100);
                     const bits = [];
-                    if (s.primary_finding) bits.push(s.primary_finding);
+                    if (s.primary_finding) bits.push(s.primary_finding.replace(/_/g, ' '));
                     if (conf != null) bits.push(conf + '%');
                     if (s.study_datetime) bits.push(fmtDateTime(s.study_datetime));
                     if (!window.ScanGuruReportViewer) {
@@ -1127,6 +1133,7 @@
             const patientId = await resolvePatientId();
             if (!patientId) {
                 document.getElementById('patient-name').textContent = 'No patient selected';
+                var _c1 = document.getElementById('crumb-patient'); if (_c1) _c1.textContent = 'No patient';
                 document.getElementById('timeline-body').innerHTML =
                     '<div style="padding:48px;text-align:center;color:var(--text-muted);">'
                   + 'Open this page via a study or patient link from the dashboard.</div>';
@@ -1138,6 +1145,7 @@
                 data = await fetchJSON('/patients/' + patientId + '/timeline');
             } catch (e) {
                 document.getElementById('patient-name').textContent = 'Patient not found';
+                var _c2 = document.getElementById('crumb-patient'); if (_c2) _c2.textContent = 'Not found';
                 console.error(e);
                 return;
             }
@@ -1149,11 +1157,41 @@
             document.getElementById('patient-name').textContent = p.name;
             document.getElementById('patient-visible-id').textContent = p.visible_id;
             document.getElementById('patient-avatar').textContent = initials(p.name);
-            const age = ageFromDob(p.dob);
-            document.getElementById('meta-age').textContent = age != null ? age + ' years old' : 'Age unknown';
+            const crumb = document.getElementById('crumb-patient');
+            if (crumb) crumb.textContent = p.name;
+
+            // PATCH:header-gaps v1 — the intake modal collects a plain age, not a
+            // date of birth, so most records have p.age and no p.dob. The old code
+            // only ever read p.dob, which is why every patient showed "Age unknown".
+            // Prefer a real DOB when one exists; fall back to the stored age.
+            const dobAge = ageFromDob(p.dob);
+            const rawAge = (p.age != null && p.age !== '') ? p.age
+                         : (p.age_years != null && p.age_years !== '' ? p.age_years : null);
+            const age = dobAge != null ? dobAge
+                      : (rawAge != null && !isNaN(Number(rawAge)) ? Number(rawAge) : null);
+            document.getElementById('meta-age').textContent =
+                age != null ? age + ' years old' : 'Age unknown';
             document.getElementById('meta-sex').textContent = p.sex || '—';
             document.getElementById('meta-mrn').textContent = 'MRN: ' + p.mrn;
-            document.getElementById('meta-doctor').textContent = '—';  // doctor assignment surface TBD
+
+            // Referring physician is captured per study, not per patient, so the
+            // header shows the most recent one that has it and says so. Blank
+            // rather than guessed when no study carries the field.
+            const studiesForDoc = (data.studies || []).slice().sort(function (a, b) {
+                return new Date(b.study_datetime || 0) - new Date(a.study_datetime || 0);
+            });
+            let referring = p.referring_physician || null;
+            if (!referring) {
+                for (let i = 0; i < studiesForDoc.length; i++) {
+                    if (studiesForDoc[i].referring_physician) {
+                        referring = studiesForDoc[i].referring_physician;
+                        break;
+                    }
+                }
+            }
+            const docEl = document.getElementById('meta-doctor');
+            docEl.textContent = referring || '—';
+            docEl.title = referring ? 'Referring physician on the most recent study' : '';
 
             // Stats
             document.getElementById('stat-total').textContent = data.total_studies;
@@ -1230,6 +1268,10 @@
         });
 
         // --- New Study button → bounces to dashboard with action params ---
+        // PATCH:header-gaps v1 — Print was a dead button.
+        const printBtn = document.getElementById('print-btn');
+        if (printBtn) printBtn.addEventListener('click', function () { window.print(); });
+
         const newStudyBtn = document.getElementById('new-study-btn');
         if (newStudyBtn) {
             newStudyBtn.addEventListener('click', async () => {
