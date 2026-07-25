@@ -2034,12 +2034,22 @@
                 });
                 window.__ssBlobs = {};
             }
+            window.__ssInFlight = {};
             window.__ssStudyId = null;
             const _note = document.getElementById('ssTabNote');
             if (_note) _note.textContent = '';
             document.querySelectorAll('#ssTabs .ss-tab').forEach(function (t) {
                 t.classList.remove('active');
                 const s = t.querySelector('.ss-tab-spin'); if (s) s.remove();
+                // PATCH:report-tabs v2 — clear "⚠ retry" so a failure on the
+                // previous study doesn't carry into the next one.
+                delete t.dataset.failed;
+                const sub = t.querySelector('.ss-tab-sub');
+                if (sub) {
+                    const labels = { clinical: 'concise read', research: 'full analysis', patient: 'plain language' };
+                    sub.textContent = labels[t.dataset.variant] || '';
+                    sub.style.color = '';
+                }
             });
             const ssPdf = document.getElementById('ss-pdf');
             if (ssPdf) { ssPdf.removeAttribute('srcdoc'); ssPdf.src = 'about:blank'; }
@@ -2342,6 +2352,34 @@
         // PATCH:report-tabs v1 ------------------------------------------------
         // Load one report variant into the preview frame, caching the blob so a
         // second visit to the same tab is instant.
+
+        // PATCH:report-tabs v2 — per-variant timeout + retry-able failures.
+        // authed() is a bare fetch with no abort, so a hung generation spun the
+        // tab forever with no error and no way out. Each variant now gets its
+        // own AbortController, mirroring the Webflow form's per-call budget.
+        const SS_TIMEOUT_MS = 240000;   // 4 min — CT Brain worst case is ~53s
+        const SS_VARIANT_SUB = {
+            clinical: 'concise read',
+            research: 'full analysis',
+            patient:  'plain language'
+        };
+
+        function ssMarkTabFailed(tab, variant) {
+            if (!tab) return;
+            tab.dataset.failed = '1';
+            const sub = tab.querySelector('.ss-tab-sub');
+            if (sub) { sub.textContent = '⚠ retry'; sub.style.color = '#dc2626'; }
+        }
+        function ssClearTabFailed(tab, variant) {
+            if (!tab) return;
+            delete tab.dataset.failed;
+            const sub = tab.querySelector('.ss-tab-sub');
+            if (sub) {
+                sub.textContent = SS_VARIANT_SUB[variant] || '';
+                sub.style.color = '';
+            }
+        }
+
         async function selectReportTab(variant, isInitial) {
             variant = (variant || 'clinical').toLowerCase();
             const studyId = window.__ssStudyId;
@@ -2360,11 +2398,24 @@
 
             const cached = window.__ssBlobs[variant];
             if (cached) {
+                // srcdoc wins over src in every browser, so a previously-failed
+                // tab would keep showing its error card here unless cleared.
+                frame.removeAttribute('srcdoc');
                 frame.src = cached;
                 document.getElementById('ssOpenTabBtn').dataset.blobUrl = cached;
                 if (note) note.textContent = '';
                 return;
             }
+
+            // Guard against a second click while a variant is still generating.
+            // Each generation is a full model run server-side, so a double-click
+            // would cost a second prediction for nothing.
+            window.__ssInFlight = window.__ssInFlight || {};
+            if (window.__ssInFlight[variant]) return;
+            window.__ssInFlight[variant] = true;
+
+            // Clear any previous failure on this tab — we're retrying it now.
+            ssClearTabFailed(tab, variant);
 
             // First view of a non-default variant regenerates server-side, which
             // can take up to a minute on the slower modalities. Say so plainly
@@ -2380,9 +2431,21 @@
                 tab.insertBefore(s, tab.firstChild);
             }
 
+            // Per-variant abort budget. `timedOut` distinguishes our own abort
+            // from a genuine network failure, so the message tells the truth.
+            const controller = new AbortController();
+            let timedOut = false;
+            const timer = setTimeout(function () {
+                timedOut = true;
+                controller.abort();
+                console.warn('[report-tabs] ' + variant + ' aborted after ' +
+                             (SS_TIMEOUT_MS / 1000) + 's');
+            }, SS_TIMEOUT_MS);
+
             try {
                 const r = await window.__scanguruAuthedFetch(
-                    '/studies/' + studyId + '/report.pdf?type=' + encodeURIComponent(variant));
+                    '/studies/' + studyId + '/report.pdf?type=' + encodeURIComponent(variant),
+                    { signal: controller.signal });
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 const blobUrl = URL.createObjectURL(await r.blob());
                 window.__ssBlobs[variant] = blobUrl;
@@ -2391,14 +2454,32 @@
                 document.getElementById('ssOpenTabBtn').dataset.blobUrl = blobUrl;
                 if (note) note.textContent = '';
             } catch (e) {
+                const isAbort = timedOut || e.name === 'AbortError';
                 console.error('[report-tabs] ' + variant + ' failed:', e);
+
+                // No blob is cached on failure, so the tab stays genuinely
+                // retryable — clicking it re-enters this function and refetches.
+                // (The Webflow form promises retry but never rewires the click;
+                // here the retry actually runs.)
+                ssMarkTabFailed(tab, variant);
+
+                const reason = isAbort
+                    ? 'It took longer than ' + (SS_TIMEOUT_MS / 60000) + ' minutes to generate.'
+                    : 'The server could not generate it.';
                 frame.removeAttribute('src');
                 frame.srcdoc =
                     '<div style="padding:24px;font-family:sans-serif;color:#888;">' +
-                    'Could not load the ' + variant + ' report. ' +
-                    'Try another tab, or use <b>Open in New Tab</b>.</div>';
-                if (note) note.textContent = 'The ' + variant + ' report could not be generated.';
+                    '<b>Could not load the ' + variant + ' report.</b><br>' + reason +
+                    '<br><br>Click the tab again to retry, switch to another tab, ' +
+                    'or use <b>Open in New Tab</b>.</div>';
+                if (note) {
+                    note.textContent = isAbort
+                        ? 'The ' + variant + ' report timed out — click the tab to retry.'
+                        : 'The ' + variant + ' report could not be generated — click the tab to retry.';
+                }
             } finally {
+                clearTimeout(timer);
+                delete window.__ssInFlight[variant];
                 if (tab) { const s = tab.querySelector('.ss-tab-spin'); if (s) s.remove(); }
             }
         }
@@ -2466,37 +2547,22 @@
             window.__ssStudyId = studyId;
             window.__ssDefaultVariant = (modal.reportType || 'clinical').toLowerCase();
             window.__ssBlobs = window.__ssBlobs || {};
-            selectReportTab(window.__ssDefaultVariant, true);
-            return;
 
-            // Try to load the PDF via fetch (with auth) → blob URL → iframe.
-            // Same trick the dashboard's data-pdf button used before the streaming fix.
-            (async () => {
-                try {
-                    const r = await window.__scanguruAuthedFetch('/studies/' + studyId + '/report.pdf');
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    const blob = await r.blob();
-                    const blobUrl = URL.createObjectURL(blob);
-                    document.getElementById('ss-pdf').src = blobUrl;
-                    // Revoke after 5 minutes; long enough to view, short enough to free memory
-                    setTimeout(() => URL.revokeObjectURL(blobUrl), 300000);
-                    // Store for Open-in-New-Tab handler
-                    document.getElementById('ssOpenTabBtn').dataset.blobUrl = blobUrl;
-                } catch (e) {
-                    console.error('[success-screen] PDF load failed:', e);
-                    document.getElementById('ss-pdf').srcdoc =
-                        '<div style="padding:24px;font-family:sans-serif;color:#888;">' +
-                        'Could not load PDF inline. Use <b>Open in New Tab</b> to view.</div>';
-                }
-            })();
-
+            // PATCH:report-tabs v2 — the mode toggle MUST run before the first
+            // tab loads. v1 had a `return;` here (left over from removing the
+            // old single-PDF fetch), which skipped everything below: the
+            // success panel never got .active, so it stayed display:none and
+            // the tabs + PDF loaded into a hidden container. To the user the
+            // modal just sat on the form after a successful analysis.
+            //
             // Toggle UI from form mode → success mode
-            document.querySelector('#analysisModal .modal-body:not(.success-screen)')
-                .style.display = 'none';
+            const formBodyEl = document.querySelector('#analysisModal .modal-body:not(.success-screen)');
+            if (formBodyEl) formBodyEl.style.display = 'none';
             document.getElementById('successScreen').classList.add('active');
-            document.querySelector('#analysisModal .btn-secondary[onclick="closeModal()"]')
-                .style.display = 'none';
-            document.getElementById('analyzeBtn').style.display = 'none';
+            const cancelBtnEl = document.querySelector('#analysisModal .btn-secondary[onclick="closeModal()"]');
+            if (cancelBtnEl) cancelBtnEl.style.display = 'none';
+            const analyzeBtnEl = document.getElementById('analyzeBtn');
+            if (analyzeBtnEl) analyzeBtnEl.style.display = 'none';
             document.getElementById('ssOpenTabBtn').style.display = 'inline-flex';
             document.getElementById('ssDoneBtn').style.display = 'inline-flex';
             const ssNew = document.getElementById('ssNewBtn');
@@ -2505,6 +2571,10 @@
             // Clear any stale error bar
             const bar = document.getElementById('analyze-error-bar');
             if (bar) bar.remove();
+
+            // Now the panel is visible, load the variant that was generated at
+            // upload. The other two generate on demand when their tab is hit.
+            selectReportTab(window.__ssDefaultVariant, true);
         }
 
         // Wire the success-screen buttons (idempotent — runs once at load)
