@@ -1705,8 +1705,16 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Age</label>
-                        <input type="number" id="modal-age" class="form-input" placeholder="Years">
+                        <!-- PATCH:dob v1 — was a plain age box. Age was accepted by the
+                             API, forwarded to the PDF, and then discarded: Patient has a
+                             dob column and no age column, so every record read back as
+                             "Age unknown". A stored age also drifts. DOB is written to
+                             the existing column and age is derived for display. -->
+                        <label class="form-label">Date of birth</label>
+                        <input type="date" id="modal-dob" class="form-input">
+                        <div id="modal-age-hint"
+                             style="font-size:11px;color:var(--text-muted);margin-top:5px;min-height:14px;"></div>
+                        <input type="hidden" id="modal-age">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Sex</label>
@@ -2142,7 +2150,9 @@
 
             // Clear patient-specific fields. Language is left as-is:
             // a user running a batch usually wants the same settings each time.
-            ['modal-name', 'modal-mrn', 'modal-age', 'modal-referring'].forEach(function (id) {
+            const _ah = document.getElementById('modal-age-hint');
+            if (_ah) _ah.textContent = '';
+            ['modal-name', 'modal-mrn', 'modal-age', 'modal-dob', 'modal-referring'].forEach(function (id) {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
@@ -2344,6 +2354,34 @@
             window.__upTimerId = setInterval(tick, 1000);
         }
 
+        // PATCH:dob v1 — echo the age the DOB implies so a mistyped year is
+        // obvious at entry rather than after the report is generated. Mirrors
+        // the server's _age_at(): whole years, birthday-aware.
+        (function wireDobAge() {
+            const dobEl  = document.getElementById('modal-dob');
+            const ageEl  = document.getElementById('modal-age');
+            const hintEl = document.getElementById('modal-age-hint');
+            if (!dobEl) return;
+            dobEl.max = new Date().toISOString().slice(0, 10);
+            dobEl.addEventListener('change', function () {
+                const v = dobEl.value;
+                if (!v) { ageEl.value = ''; hintEl.textContent = ''; return; }
+                const b = new Date(v + 'T00:00:00Z');
+                const n = new Date();
+                if (isNaN(b.getTime()) || b > n) {
+                    ageEl.value = '';
+                    hintEl.textContent = 'Check this date — it is in the future.';
+                    return;
+                }
+                let years = n.getUTCFullYear() - b.getUTCFullYear();
+                const md = (n.getUTCMonth() - b.getUTCMonth())
+                        || (n.getUTCDate() - b.getUTCDate());
+                if (md < 0) years -= 1;
+                ageEl.value = years;
+                hintEl.textContent = years + (years === 1 ? ' year old' : ' years old');
+            });
+        })();
+
         (function wireReplaceLink() {
             const r = document.getElementById('upReplace');
             if (r) r.addEventListener('click', function (e) {
@@ -2433,6 +2471,7 @@
                 return {
                     name:     (document.getElementById('modal-name').value || '').trim(),
                     mrn:      (document.getElementById('modal-mrn').value || '').trim(),
+                    dob:      (document.getElementById('modal-dob').value || '').trim(),
                     age:      (document.getElementById('modal-age').value || '').trim(),
                     sex:      document.getElementById('modal-sex').value || '',
                     referring:(document.getElementById('modal-referring').value || '').trim(),
@@ -2502,6 +2541,7 @@
                 fd.append('consent_confirmed', 'true');  // PATCH:consent v1
                 fd.append('name', d.name);
                 fd.append('mrn', d.mrn);
+                if (d.dob) fd.append('dob', d.dob);
                 if (d.age) fd.append('age', d.age);
                 if (d.sex) fd.append('sex', d.sex);
                 if (d.referring) fd.append('referring_physician', d.referring);
