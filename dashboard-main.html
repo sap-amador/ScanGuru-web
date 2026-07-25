@@ -1237,6 +1237,50 @@
             color: var(--text-muted);
             margin-top: 12px;
         }
+
+        /* PATCH:upload-preview v1 */
+        .upload-zone.has-file { padding: 12px; cursor: default; text-align: left; }
+        .up-stage {
+            position: relative; overflow: hidden;
+            border-radius: 10px; background: #0b1220;
+            min-height: 180px; max-height: 340px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .up-stage img { max-width: 100%; max-height: 340px; display: block; object-fit: contain; }
+        .up-dicom {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            padding: 32px 16px; color: var(--text-secondary); text-align: center;
+        }
+        .up-dicom i { font-size: 30px; color: var(--primary); }
+        .up-dicom span { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .up-dicom small { font-size: 11px; color: var(--text-muted); }
+        .up-scanline {
+            position: absolute; left: 0; right: 0; top: 0; height: 2px;
+            background: var(--primary); box-shadow: 0 0 10px var(--primary);
+            opacity: 0; pointer-events: none;
+        }
+        .upload-zone.analyzing .up-scanline { opacity: 1; animation: upSweep 2.2s linear infinite; }
+        @keyframes upSweep { from { top: 0; } to { top: calc(100% - 2px); } }
+        .upload-zone.analyzing .up-stage img { opacity: .55; transition: opacity .3s; }
+        .up-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; margin-top: 10px; font-size: 13px;
+        }
+        .up-name {
+            color: var(--text-primary); font-weight: 600;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .up-right { display: flex; align-items: center; gap: 12px; color: var(--text-muted); flex-shrink: 0; }
+        .up-replace { color: var(--primary); cursor: pointer; text-decoration: underline; }
+        .up-status {
+            display: none; justify-content: space-between; align-items: center;
+            margin-top: 8px; font-size: 12px; color: var(--primary);
+        }
+        .upload-zone.analyzing .up-status { display: flex; }
+        .up-timer { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+        @media (prefers-reduced-motion: reduce) {
+            .upload-zone.analyzing .up-scanline { animation: none; opacity: .6; top: 50%; }
+        }
         
         .modal-footer {
             padding: 20px 32px;
@@ -1792,20 +1836,16 @@
                     </small>
                 </div>
                 
-                <!-- Report Type + Language -->
+                <!-- Report Language -->
                 <h3 style="font-size: 14px; font-weight: 600; margin: 24px 0 16px; color: var(--text-secondary);">
                     <i class="fas fa-file-medical-alt" style="margin-right: 8px; color: var(--primary);"></i>
                     Report Options
                 </h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label" data-i18n="portal.modal_report_type">Report Type</label>
-                        <select id="modal-report-type" class="form-select">
-                            <option value="clinical" selected>🩺 Clinical — 2 pages, fast scan (default)</option>
-                            <option value="research">🔬 Research — 3-4 pages, full analysis</option>
-                            <option value="patient">👨‍👩‍👧 Patient — 2 pages, plain-language</option>
-                        </select>
-                    </div>
+                <!-- PATCH:report-tabs v2 — the Report Type select was removed. All
+                     three variants are now reachable as tabs on the result screen,
+                     so choosing one up front was misleading. Clinical (the fastest)
+                     is generated at upload; the others generate on first tab click. -->
+                <div class="form-row" style="grid-template-columns: 1fr;">
                     <div class="form-group">
                         <label class="form-label" data-i18n="portal.modal_report_language">Report Language</label>
                         <select id="modal-lang" class="form-select">
@@ -1925,12 +1965,42 @@
                 </h3>
                 
                 <div class="upload-zone" id="uploadZone">
-                    <div class="upload-icon">
-                        <i class="fas fa-cloud-upload-alt"></i>
+                    <!-- Empty state — hidden once a file is chosen -->
+                    <div id="uploadPrompt">
+                        <div class="upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <div class="upload-title">Drag &amp; drop your image here</div>
+                        <div class="upload-desc">or click to browse files</div>
+                        <div class="upload-formats">Supported: DICOM (.dcm), PNG, JPG, JPEG • Max 50MB &nbsp;|&nbsp; DICOM series (.zip) • Max 500MB</div>
                     </div>
-                    <div class="upload-title">Drag & drop your image here</div>
-                    <div class="upload-desc">or click to browse files</div>
-                    <div class="upload-formats">Supported: DICOM (.dcm), PNG, JPG, JPEG • Max 50MB &nbsp;|&nbsp; DICOM series (.zip) • Max 500MB</div>
+
+                    <!-- PATCH:upload-preview v1 — show the actual image before the
+                         technologist commits. A filename alone can't catch a
+                         wrong-patient upload; the pixels can. DICOM has no browser
+                         decoder, so .dcm/.zip fall back to a type card. -->
+                    <div id="uploadPreview" style="display:none;">
+                        <div class="up-stage" id="upStage">
+                            <img id="upImg" alt="Selected scan preview" style="display:none;">
+                            <div id="upDicom" class="up-dicom" style="display:none;">
+                                <i class="fas fa-layer-group"></i>
+                                <span id="upDicomLabel">DICOM file</span>
+                                <small>No in-browser preview available</small>
+                            </div>
+                            <div class="up-scanline" id="upScanline"></div>
+                        </div>
+                        <div class="up-meta">
+                            <span class="up-name" id="upName">—</span>
+                            <span class="up-right">
+                                <span id="upSize">—</span>
+                                <span class="up-replace" id="upReplace">Replace</span>
+                            </span>
+                        </div>
+                        <div class="up-status" id="upStatus">
+                            <span id="upStatusText"></span>
+                            <span class="up-timer" id="upTimer"></span>
+                        </div>
+                    </div>
                     <input type="file" id="fileInput" accept=".dcm,.dicom,.zip,.png,.jpg,.jpeg" style="display: none;">
                 </div>
 
@@ -2070,7 +2140,7 @@
                 if (el) el.style.display = 'none';
             });
 
-            // Clear patient-specific fields. Report type + language are left as-is:
+            // Clear patient-specific fields. Language is left as-is:
             // a user running a batch usually wants the same settings each time.
             ['modal-name', 'modal-mrn', 'modal-age', 'modal-referring'].forEach(function (id) {
                 const el = document.getElementById(id);
@@ -2078,6 +2148,9 @@
             });
             const sexEl = document.getElementById('modal-sex');
             if (sexEl) sexEl.value = '';
+            // PATCH:upload-preview v1 — drop the previous scan and revoke its
+            // object URL. The file input itself is cleared a few lines down.
+            if (typeof clearUploadPreview === 'function') clearUploadPreview();
             const urgEl = document.getElementById('modal-urgency');
             if (urgEl) urgEl.value = 'routine';
             const regionEl = document.getElementById('modal-region');
@@ -2120,7 +2193,12 @@
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
         
-        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('click', () => {
+            // Once a preview is showing, only the explicit Replace link reopens
+            // the picker — otherwise every click on the image swaps the study.
+            if (uploadZone.classList.contains('has-file')) return;
+            fileInput.click();
+        });
         
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -2144,13 +2222,136 @@
         function handleFiles(files) {
             if (files.length > 0) {
                 const file = files[0];
-                uploadZone.querySelector('.upload-title').textContent = file.name;
-                uploadZone.querySelector('.upload-desc').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
-                uploadZone.style.borderColor = 'var(--primary)';
-                uploadZone.style.background = 'var(--primary-bg)';
+                renderUploadPreview(file);
                 checkFormValidity();
             }
         }
+
+        // PATCH:upload-preview v1 ----------------------------------------------
+        // Browsers have no DICOM decoder, so only PNG/JPG get a real <img>.
+        // .dcm and .zip get a type card instead of a broken image.
+        function ssFileKind(file) {
+            const n = (file && file.name ? file.name : '').toLowerCase();
+            if (n.endsWith('.zip')) return 'dicom_series';
+            if (n.endsWith('.dcm') || n.endsWith('.dicom')) return 'dicom_single';
+            return 'image';
+        }
+
+        function clearUploadPreview() {
+            // Revoke first — a technologist running twenty studies would
+            // otherwise hold every decoded image in memory for the session.
+            if (window.__upObjectUrl) {
+                try { URL.revokeObjectURL(window.__upObjectUrl); } catch (e) {}
+                window.__upObjectUrl = null;
+            }
+            const zone = document.getElementById('uploadZone');
+            const img  = document.getElementById('upImg');
+            if (img) { img.removeAttribute('src'); img.style.display = 'none'; }
+            const dicom = document.getElementById('upDicom');
+            if (dicom) dicom.style.display = 'none';
+            const prev = document.getElementById('uploadPreview');
+            if (prev) prev.style.display = 'none';
+            const prompt = document.getElementById('uploadPrompt');
+            if (prompt) prompt.style.display = '';
+            if (zone) {
+                zone.classList.remove('has-file', 'analyzing');
+                zone.style.borderColor = '';
+                zone.style.background = '';
+            }
+            setUploadAnalyzing(false);
+        }
+
+        function renderUploadPreview(file) {
+            clearUploadPreview();
+            const zone   = document.getElementById('uploadZone');
+            const prompt = document.getElementById('uploadPrompt');
+            const prev   = document.getElementById('uploadPreview');
+            const img    = document.getElementById('upImg');
+            const dicom  = document.getElementById('upDicom');
+            if (!zone || !prev) return;
+
+            const kind = ssFileKind(file);
+            const mb   = (file.size / 1024 / 1024);
+            document.getElementById('upName').textContent = file.name;
+            document.getElementById('upSize').textContent =
+                (mb < 1 ? (file.size / 1024).toFixed(0) + ' KB' : mb.toFixed(2) + ' MB');
+
+            if (kind === 'image') {
+                const url = URL.createObjectURL(file);
+                window.__upObjectUrl = url;
+                img.onload = function () {
+                    // Real pixel dimensions, read from the decoded image — not
+                    // guessed from the filename.
+                    const dims = img.naturalWidth + ' × ' + img.naturalHeight;
+                    const sizeEl = document.getElementById('upSize');
+                    if (sizeEl) sizeEl.textContent = sizeEl.textContent + ' · ' + dims;
+                };
+                img.onerror = function () {
+                    img.style.display = 'none';
+                    dicom.style.display = 'flex';
+                    document.getElementById('upDicomLabel').textContent = 'Preview unavailable';
+                };
+                img.src = url;
+                img.style.display = 'block';
+            } else {
+                // No slice count — reading it would mean unzipping client-side,
+                // and a guessed number on a clinical screen is worse than none.
+                document.getElementById('upDicomLabel').textContent =
+                    kind === 'dicom_series' ? 'DICOM series (.zip)' : 'DICOM file (.dcm)';
+                dicom.style.display = 'flex';
+            }
+
+            if (prompt) prompt.style.display = 'none';
+            prev.style.display = '';
+            zone.classList.add('has-file');
+            zone.style.borderColor = 'var(--primary)';
+            zone.style.background = 'var(--primary-bg)';
+        }
+
+        // Scan-line + elapsed timer. The status text stays deliberately vague:
+        // this POST blocks until the portal finishes polling the AI service, so
+        // the browser has no real stage information. Inventing "running ensemble"
+        // would be a guess dressed as telemetry — the elapsed clock is the honest
+        // signal that something is still happening.
+        function setUploadAnalyzing(on) {
+            const zone   = document.getElementById('uploadZone');
+            const timer  = document.getElementById('upTimer');
+            const status = document.getElementById('upStatusText');
+            if (window.__upTimerId) { clearInterval(window.__upTimerId); window.__upTimerId = null; }
+            if (!zone) return;
+
+            if (!on) {
+                zone.classList.remove('analyzing');
+                if (timer) timer.textContent = '';
+                if (status) status.textContent = '';
+                return;
+            }
+
+            zone.classList.add('analyzing');
+            const started = Date.now();
+            const tick = function () {
+                const s = Math.floor((Date.now() - started) / 1000);
+                if (timer) {
+                    timer.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+                }
+                if (status) {
+                    status.textContent = s < 45
+                        ? 'Analyzing scan'
+                        : 'Still running — larger studies can take a minute or more';
+                }
+            };
+            tick();
+            window.__upTimerId = setInterval(tick, 1000);
+        }
+
+        (function wireReplaceLink() {
+            const r = document.getElementById('upReplace');
+            if (r) r.addEventListener('click', function (e) {
+                e.stopPropagation();
+                document.getElementById('fileInput').click();
+            });
+        })();
+        // ----------------------------------------------------------------------
         
         function checkFormValidity() {
             const hasModality = document.querySelector('.modality-option.selected');
@@ -2238,7 +2439,11 @@
                     urgency:  document.getElementById('modal-urgency').value || 'routine',
                     modalityCode: selectedModalityEl ? selectedModalityEl.dataset.modality : '',
                     region:   (document.getElementById('modal-region') || {}).value || '',
-                    reportType: document.getElementById('modal-report-type').value || 'clinical',
+                    // PATCH:report-tabs v2 — the Report Type select is gone from the
+                    // form. report_type is still a required field on the AI service,
+                    // so pin it to the fast variant; research/patient are generated
+                    // on demand from the result tabs.
+                    reportType: 'clinical',
                     lang:     document.getElementById('modal-lang').value || 'en',
                     file:     fileEl.files && fileEl.files[0] ? fileEl.files[0] : null
                 };
@@ -2264,6 +2469,9 @@
 
             function setBusy(isBusy, msg) {
                 btn.disabled = isBusy;
+                // PATCH:upload-preview v1 — scan line + elapsed timer follow the
+                // same busy flag the button already uses, so they can't desync.
+                if (typeof setUploadAnalyzing === 'function') setUploadAnalyzing(isBusy);
                 if (isBusy) {
                     btn.dataset._origHtml = btn.dataset._origHtml || btn.innerHTML;
                     btn.innerHTML =
