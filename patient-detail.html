@@ -602,6 +602,45 @@
             margin-bottom: 16px;
         }
         
+        /* PATCH:assignment v1 */
+        .assign-edit {
+            margin-left: 8px; padding: 2px 8px;
+            background: transparent; border: 1px solid var(--border);
+            border-radius: 6px; color: var(--text-muted);
+            font-family: inherit; font-size: 11px; cursor: pointer;
+        }
+        .assign-edit:hover { border-color: var(--primary); color: var(--primary); }
+        .assign-picker {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(2,6,23,.7);
+            display: none; align-items: center; justify-content: center; padding: 24px;
+        }
+        .assign-picker.open { display: flex; }
+        .assign-panel {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 14px; width: min(420px, 100%); max-height: 80vh;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .assign-head {
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+            font-size: 15px; font-weight: 600; color: var(--text-primary);
+        }
+        .assign-list { overflow-y: auto; padding: 8px; }
+        .assign-opt {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 4px;
+            background: transparent; border: 1px solid transparent; border-radius: 8px;
+            color: var(--text-primary); font-family: inherit; font-size: 14px; cursor: pointer;
+        }
+        .assign-opt:hover { background: var(--bg-tertiary); }
+        .assign-opt.current { border-color: var(--primary); color: var(--primary); }
+        .assign-opt .role { font-size: 11px; color: var(--text-muted); text-transform: capitalize; }
+        .assign-opt.clear { color: var(--text-muted); font-style: italic; }
+        .assign-foot {
+            padding: 12px 20px; border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+        }
+        .assign-note { font-size: 11px; color: var(--text-muted); }
         .info-row {
             display: flex;
             justify-content: space-between;
@@ -876,6 +915,18 @@
                             <div class="info-row">
                                 <span class="info-label" data-i18n="portal.th_mrn">MRN</span>
                                 <span class="info-value" id="info-mrn">—</span>
+                            </div>
+                            <!-- PATCH:assignment v1 — who actually holds this patient.
+                                 create_study auto-assigns whoever uploaded, which is
+                                 a floor rather than a clinical decision; this is where
+                                 it gets corrected. -->
+                            <div class="info-row">
+                                <span class="info-label">Assigned to</span>
+                                <span class="info-value">
+                                    <span id="info-assignee">—</span>
+                                    <button type="button" id="assign-edit-btn" class="assign-edit"
+                                            title="Change the assigned clinician">Change</button>
+                                </span>
                             </div>
                         </div>
 
@@ -1219,6 +1270,20 @@
 
             // Sidebar — Patient Details
             document.getElementById('info-dob').textContent = fmtDate(p.dob);
+
+            // PATCH:assignment v1 — blank means genuinely unassigned. It is never
+            // backfilled from whoever uploaded: that would restate the auto-assign
+            // as though someone had chosen it.
+            (function () {
+                const el = document.getElementById('info-assignee');
+                const a = data.assigned_to;
+                if (el) {
+                    el.textContent = a ? a.full_name : 'Unassigned';
+                    el.style.color = a ? '' : 'var(--text-muted)';
+                    el.title = a ? (a.role || '') : '';
+                }
+                window.__assignedToId = a ? a.id : null;
+            })();
             document.getElementById('info-sex').textContent = p.sex || '—';
             document.getElementById('info-mrn').textContent = p.mrn;
             document.getElementById('info-phone').textContent = p.phone || '—';
@@ -1286,6 +1351,111 @@
         });
 
         // --- New Study button → bounces to dashboard with action params ---
+        // PATCH:assignment v1 --------------------------------------------------
+        // The picker lists every active user in the org with their role, rather
+        // than filtering to a role this code has decided is "clinical". Which
+        // roles treat patients differs by site, and showing the role lets the
+        // person choosing make that call.
+        (function wireAssignment() {
+            const btn = document.getElementById('assign-edit-btn');
+            if (!btn) return;
+
+            let overlay = null;
+
+            function close() { if (overlay) overlay.classList.remove('open'); }
+
+            async function commit(userId, label) {
+                try {
+                    // resolvePatientId is async — without the await this posts to
+                    // /patients/[object Promise]/assign.
+                    const pid = await resolvePatientId();
+                    const r = await authed('/patients/' + pid + '/assign', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ doctor_user_id: userId })
+                    });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    close();
+                    // Re-read from the server rather than patching the DOM, so what
+                    // is shown is what was actually stored.
+                    await load();
+                } catch (e) {
+                    console.error('[assignment] failed:', e);
+                    const note = document.getElementById('assign-note');
+                    if (note) {
+                        note.textContent = 'Could not save — ' + e.message;
+                        note.style.color = 'var(--critical, #EF4444)';
+                    }
+                }
+            }
+
+            function build(users) {
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.className = 'assign-picker';
+                    overlay.addEventListener('click', function (ev) {
+                        if (ev.target === overlay) close();
+                    });
+                    document.body.appendChild(overlay);
+                    document.addEventListener('keydown', function (ev) {
+                        if (ev.key === 'Escape') close();
+                    });
+                }
+                const cur = window.__assignedToId;
+                overlay.innerHTML =
+                    '<div class="assign-panel">'
+                  +   '<div class="assign-head">Assign this patient</div>'
+                  +   '<div class="assign-list" id="assign-list"></div>'
+                  +   '<div class="assign-foot">'
+                  +     '<span class="assign-note" id="assign-note">The previous assignment is kept in the record.</span>'
+                  +     '<button type="button" class="btn btn-outline" id="assign-cancel">Cancel</button>'
+                  +   '</div>'
+                  + '</div>';
+
+                const list = overlay.querySelector('#assign-list');
+                users.forEach(function (u) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'assign-opt' + (u.id === cur ? ' current' : '');
+                    b.innerHTML = '<span>' + u.full_name + (u.is_self ? ' (you)' : '') + '</span>'
+                                + '<span class="role">' + u.role + '</span>';
+                    b.addEventListener('click', function () {
+                        if (u.id === cur) { close(); return; }
+                        commit(u.id, u.full_name);
+                    });
+                    list.appendChild(b);
+                });
+
+                const clear = document.createElement('button');
+                clear.type = 'button';
+                clear.className = 'assign-opt clear';
+                clear.textContent = 'Leave unassigned';
+                clear.addEventListener('click', function () { commit(null, null); });
+                list.appendChild(clear);
+
+                overlay.querySelector('#assign-cancel').addEventListener('click', close);
+                overlay.classList.add('open');
+            }
+
+            btn.addEventListener('click', async function () {
+                btn.disabled = true;
+                const original = btn.textContent;
+                btn.textContent = '…';
+                try {
+                    const r = await authed('/users');
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const data = await r.json();
+                    build(data.items || []);
+                } catch (e) {
+                    console.error('[assignment] could not load users:', e);
+                    alert('Could not load the list of users: ' + e.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = original;
+                }
+            });
+        })();
+
         // PATCH:header-gaps v1 — Print was a dead button.
         const printBtn = document.getElementById('print-btn');
         if (printBtn) printBtn.addEventListener('click', function () { window.print(); });
