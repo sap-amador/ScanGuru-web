@@ -636,6 +636,10 @@
         .assign-opt.current { border-color: var(--primary); color: var(--primary); }
         .assign-opt .role { font-size: 11px; color: var(--text-muted); text-transform: capitalize; }
         .assign-opt.clear { color: var(--text-muted); font-style: italic; }
+        .assign-group {
+            font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+            color: var(--text-muted); padding: 10px 12px 4px;
+        }
         .assign-foot {
             padding: 12px 20px; border-top: 1px solid var(--border);
             display: flex; justify-content: space-between; align-items: center; gap: 12px;
@@ -1404,7 +1408,9 @@
                 const cur = window.__assignedToId;
                 overlay.innerHTML =
                     '<div class="assign-panel">'
-                  +   '<div class="assign-head">Assign this patient</div>'
+                  +   '<div class="assign-head">Assign a clinician'
+  +     '<div style="font-size:12px;font-weight:400;color:var(--text-muted);margin-top:2px;">'
+  +       'Who is responsible for this patient</div></div>'
                   +   '<div class="assign-list" id="assign-list"></div>'
                   +   '<div class="assign-foot">'
                   +     '<span class="assign-note" id="assign-note">The previous assignment is kept in the record.</span>'
@@ -1413,7 +1419,19 @@
                   + '</div>';
 
                 const list = overlay.querySelector('#assign-list');
-                users.forEach(function (u) {
+
+                // PATCH:assignment v2 — an unsorted list mixing admins with
+                // clinicians made this read as "pick an organisation account".
+                // Clinical roles come first under their own heading; admins and
+                // technologists stay selectable (a one-person clinic may well
+                // run on an admin login) but are visibly secondary.
+                const CLINICAL = ['radiologist', 'referring'];
+                const groups = [
+                    { label: 'Clinicians', users: users.filter(u => CLINICAL.indexOf(u.role) !== -1) },
+                    { label: 'Other staff', users: users.filter(u => CLINICAL.indexOf(u.role) === -1) }
+                ];
+
+                function addOption(u) {
                     const b = document.createElement('button');
                     b.type = 'button';
                     b.className = 'assign-opt' + (u.id === cur ? ' current' : '');
@@ -1424,6 +1442,15 @@
                         commit(u.id, u.full_name);
                     });
                     list.appendChild(b);
+                }
+
+                groups.forEach(function (g) {
+                    if (!g.users.length) return;
+                    const h = document.createElement('div');
+                    h.className = 'assign-group';
+                    h.textContent = g.label;
+                    list.appendChild(h);
+                    g.users.forEach(addOption);
                 });
 
                 const clear = document.createElement('button');
