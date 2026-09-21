@@ -1779,6 +1779,11 @@
                         <div class="modality-option-name">Mammography</div>
                         <div class="modality-option-count">BI-RADS 0-6</div>
                     </div>
+                    <div class="modality-option" data-modality="MRI_BRAIN" onclick="selectModality(this)">
+                        <i class="fas fa-brain"></i>
+                        <div class="modality-option-name">MRI Brain</div>
+                        <div class="modality-option-count">Multi-slice DICOM</div>
+                    </div>
                     <div class="modality-option" data-modality="MRI_SPINE" onclick="selectModality(this)">
                         <i class="fas fa-bone"></i>
                         <div class="modality-option-name">MRI Spine</div>
@@ -2447,7 +2452,7 @@
             const MODALITY_TO_API = {
                 CXR: 'cxr', CT_BRAIN: 'ct_brain', CT_CHEST: 'ct_chest',
                 MAMMO: 'mammography', DENTAL: 'dental', MSK: 'msk',
-                MRI_SPINE: 'mri_spine', MRI_KNEE: 'mri_knee',
+                MRI_BRAIN: 'mri_brain', MRI_SPINE: 'mri_spine', MRI_KNEE: 'mri_knee',
                 MRI_PROSTATE: 'mri_prostate', MRI_BREAST: 'mri_breast',
                 MRI_CARDIAC: 'mri_cardiac', MRI_SHOULDER: 'mri_shoulder',
                 US: 'ultrasound', PET: 'pet'
@@ -2755,7 +2760,7 @@
             const MODALITY_LABEL = {
                 CXR: 'Chest X-Ray', CT_BRAIN: 'CT Brain', CT_CHEST: 'CT Chest',
                 MAMMO: 'Mammography', DENTAL: 'Dental', MSK: 'MSK',
-                MRI_SPINE: 'MRI Spine', MRI_KNEE: 'MRI Knee',
+                MRI_BRAIN: 'MRI Brain', MRI_SPINE: 'MRI Spine', MRI_KNEE: 'MRI Knee',
                 MRI_PROSTATE: 'MRI Prostate', MRI_BREAST: 'MRI Breast',
                 MRI_CARDIAC: 'MRI Cardiac', MRI_SHOULDER: 'MRI Shoulder',
                 US: 'Ultrasound', PET: 'PET Scan'
@@ -2932,7 +2937,7 @@
         const MODALITY_ICONS = {
             CXR: 'fa-lungs', CT_BRAIN: 'fa-brain', CT_CHEST: 'fa-lungs',
             MAMMO: 'fa-ribbon', DENTAL: 'fa-tooth', MSK: 'fa-bone',
-            MRI_SPINE: 'fa-bone', MRI_KNEE: 'fa-bone', MRI_PROSTATE: 'fa-bone',
+            MRI_BRAIN: 'fa-brain', MRI_SPINE: 'fa-bone', MRI_KNEE: 'fa-bone', MRI_PROSTATE: 'fa-bone',
             MRI_BREAST: 'fa-ribbon', MRI_CARDIAC: 'fa-heart', MRI_SHOULDER: 'fa-bone',
             US: 'fa-wave-square', PET: 'fa-atom'
         };
@@ -2940,7 +2945,7 @@
         const MODALITY_LABEL = {
             CXR: 'Chest X-Ray', CT_BRAIN: 'CT Brain', CT_CHEST: 'CT Chest',
             MAMMO: 'Mammography', DENTAL: 'Dental', MSK: 'MSK',
-            MRI_SPINE: 'MRI Spine', MRI_KNEE: 'MRI Knee', MRI_PROSTATE: 'MRI Prostate',
+            MRI_BRAIN: 'MRI Brain', MRI_SPINE: 'MRI Spine', MRI_KNEE: 'MRI Knee', MRI_PROSTATE: 'MRI Prostate',
             MRI_BREAST: 'MRI Breast', MRI_CARDIAC: 'MRI Cardiac', MRI_SHOULDER: 'MRI Shoulder',
             US: 'Ultrasound', PET: 'PET Scan'
         };
