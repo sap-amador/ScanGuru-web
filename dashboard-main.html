@@ -2592,10 +2592,48 @@
                         return;
                     }
 
-                    // Success → close modal, refresh dashboard table.
+                    // ASYNC_STUDY_V1 — backend now returns {status:'processing'} at once.
+                    // Poll GET /studies/{id} until the AI finishes, then show the report.
+                    const studyId = payload && payload.study_id;
+                    let final = payload;
+                    if (studyId && String(payload.status || '').toLowerCase() === 'processing') {
+                        const t0 = Date.now();
+                        const POLL_MS = 3000, MAX_MS = 30 * 60 * 1000;
+                        while (Date.now() - t0 < MAX_MS) {
+                            await new Promise(r => setTimeout(r, POLL_MS));
+                            const secs = Math.round((Date.now() - t0) / 1000);
+                            setBusy(true, `Analyzing… ${secs}s (CT/MRI series can take 2–4 min)`);
+                            let sr;
+                            try { sr = await window.__scanguruAuthedFetch('/studies/' + studyId); }
+                            catch (_) { continue; }
+                            if (sr.status === 401) { sessionStorage.removeItem('scanguru_token'); window.location.href = 'portal-login.html'; return; }
+                            if (!sr.ok) continue;
+                            let sj = null; try { sj = await sr.json(); } catch (_) { continue; }
+                            const st = String(sj.status || '').toLowerCase();
+                            if (st === 'processing' || st === 'queued') continue;
+                            if (st === 'failed') {
+                                showError('AI analysis failed for this study. Please try again or contact support.');
+                                setBusy(false);
+                                return;
+                            }
+                            const rep = sj.report || sj;
+                            final = {
+                                study_id: sj.id || sj.study_id || studyId,
+                                status: st,
+                                primary_finding: sj.primary_finding ?? rep.primary_finding ?? null,
+                                confidence: sj.confidence ?? rep.confidence ?? null,
+                            };
+                            break;
+                        }
+                        if (final === payload) {
+                            showError('Analysis is still running after 30 minutes. Check the worklist later.');
+                            setBusy(false);
+                            return;
+                        }
+                    }
                     setBusy(false);
                     // PATCH:success-screen v1 — show inline PDF instead of reloading
-                    renderSuccessScreen(payload, d);
+                    renderSuccessScreen(final, d);
                 } catch (e) {
                     console.error('[analyze-handler] submit failed:', e);
                     showError('Network error: ' + (e.message || e));
