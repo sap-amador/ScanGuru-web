@@ -2246,6 +2246,11 @@
         
         function handleFiles(files) {
             if (files.length > 0) {
+                // DROP_FIX_V1: drag-and-drop bypassed the <input>, so hasFile stayed false.
+                if (fileInput.files !== files) {
+                    try { fileInput.files = files; }
+                    catch (_) { const dt = new DataTransfer(); dt.items.add(files[0]); fileInput.files = dt.files; }
+                }
                 const file = files[0];
                 renderUploadPreview(file);
                 checkFormValidity();
@@ -2259,6 +2264,8 @@
             const n = (file && file.name ? file.name : '').toLowerCase();
             if (n.endsWith('.zip')) return 'dicom_series';
             if (n.endsWith('.dcm') || n.endsWith('.dicom')) return 'dicom_single';
+            if (/\.(png|jpe?g|gif|bmp|webp|tiff?)$/.test(n)) return 'image';
+            if (!/\.[a-z0-9]{1,5}$/.test(n)) return 'dicom_single';   // no extension: DICOM UID-style name
             return 'image';
         }
 
