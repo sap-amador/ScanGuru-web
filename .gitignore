@@ -3,3 +3,7 @@ backup/
 dashboard-main_backup_*.html
 *_backup_*.html
 .DS_Store
+
+dashboard-main_backup_*.html
+*_backup_*.html
+.DS_Store
