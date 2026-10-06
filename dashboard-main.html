@@ -1392,6 +1392,11 @@
                     <i class="fas fa-th-large"></i>
                     <span data-i18n="portal.nav_dashboard">Dashboard</span>
                 </a>
+                <!-- ADMIN_V1: shown only when /admin/overview answers 200 for this user -->
+                <a href="admin.html" class="nav-item" data-nav="Admin" id="navAdmin" style="display:none">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Admin console</span>
+                </a>
                 <a href="#" class="nav-item" data-nav="Analytics">
                     <i class="fas fa-chart-line"></i>
                     <span data-i18n="portal.nav_analytics">Analytics</span>
@@ -3569,5 +3574,16 @@
     <!-- ScanGuru i18n v6.3.0 — shared engine (portal.* namespace, RTL, auto-init) -->
     <script src="scanguru-report-viewer.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/sap-amador/scanguru.net@1dd43ef/scanguru-i18n-v6-full-site.js"></script>
+<script>
+// ADMIN_V1 — reveal the Admin console link for super-admins only.
+(function () {
+  var tok = sessionStorage.getItem('scanguru_token'); var el = document.getElementById('navAdmin');
+  if (!tok || !el) return;
+  fetch('https://scanguru-portal-api-production.up.railway.app/api/v1/admin/overview', { headers: { Authorization: 'Bearer ' + tok } })
+    .then(function (r) { if (r.ok) { el.style.display = ''; } })
+    .catch(function () {});
+  el.addEventListener('click', function (e) { e.preventDefault(); e.stopImmediatePropagation(); window.location.href = 'admin.html'; }, true);
+})();
+</script>
 </body>
 </html>
