@@ -1,0 +1,124 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>ScanGuru — Admin console</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#1F2937;--panel:#2B3545;--panel2:#334155;--line:#3F4B5E;--ink:#F1F5F9;--muted:#94A3B8;--teal:#57B7A3;--red:#EF4444;--amber:#F59E0B;--green:#10B981;--blue:#3B82F6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-size:14px}
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;background:var(--panel);border-bottom:1px solid var(--line)}
+header b{font-size:18px}header .who{margin-left:auto;color:var(--muted);font-size:13px}
+nav{display:flex;gap:4px;padding:10px 24px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav button{background:transparent;border:0;color:var(--muted);padding:8px 14px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+nav button.on{background:var(--panel2);color:var(--ink)}
+main{padding:20px 24px;max-width:1400px;margin:0 auto}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}.tile .v{font-size:26px;font-weight:700}.tile .l{color:var(--muted);font-size:12px;margin-top:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.bar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+input,select,textarea{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:hover td{background:rgba(255,255,255,.02)}
+.b{border:0;border-radius:7px;padding:6px 10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;margin:2px}
+.b.t{background:var(--teal);color:#fff}.b.r{background:var(--red);color:#fff}.b.a{background:var(--amber);color:#111}.b.g{background:var(--panel2);color:var(--ink)}.b.bl{background:var(--blue);color:#fff}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.pill.on{background:#064E3B;color:#6EE7B7}.pill.off{background:#7F1D1D;color:#FCA5A5}.pill.n{background:var(--panel2);color:var(--muted)}
+.muted{color:var(--muted)}.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0F172A;border:1px solid var(--line);padding:10px 16px;border-radius:10px;display:none;max-width:80vw}
+.hide{display:none}
+</style></head><body>
+<header><b>ScanGuru</b><span class="muted">Admin console</span><span class="who" id="who"></span><a href="dashboard-main.html" class="b g" style="text-decoration:none">← Dashboard</a><button class="b g" onclick="logout()">Sign out</button></header>
+<nav id="tabs">
+  <button data-t="overview" class="on">Overview</button><button data-t="orgs">Organizations</button><button data-t="users">Users</button>
+  <button data-t="signups">Access requests</button><button data-t="audit">Audit log</button><button data-t="usage">Usage</button>
+</nav>
+<main id="main"><div class="card">Loading…</div></main>
+<div id="toast"></div>
+<script>
+const API_BASE='https://scanguru-portal-api-production.up.railway.app/api/v1';
+const token=sessionStorage.getItem('scanguru_token'); if(!token) location.href='portal-login.html';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=iso=>iso?new Date(iso).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}):'—';
+const main=document.getElementById('main');
+function logout(){sessionStorage.removeItem('scanguru_token');location.href='portal-login.html';}
+function toast(m,ms=3200){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',ms);}
+async function api(path,opts={}){const r=await fetch(API_BASE+path,Object.assign({},opts,{headers:Object.assign({'Authorization':'Bearer '+token,'Content-Type':'application/json'},opts.headers||{})}));
+  if(r.status===401){logout();return;} if(r.status===403){main.innerHTML='<div class="card">This console is for ScanGuru super-admins only. <a href="dashboard-main.html" style="color:var(--teal)">Back to dashboard</a></div>';throw new Error('403');}
+  const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.detail||d.error||('HTTP '+r.status)); return d;}
+const pill=on=>`<span class="pill ${on?'on':'off'}">${on?'active':'inactive'}</span>`;
+
+// ---- Overview ----
+async function vOverview(){const o=await api('/admin/overview');document.getElementById('who').textContent=o.superadmin;
+  main.innerHTML=`<div class="tiles">
+  ${[['Organizations',o.orgs_active+' / '+o.orgs_total,'active / total'],['Users',o.users_active+' / '+o.users_total,'active / total'],['Studies (30 d)',o.studies_30d,o.studies_total+' total'],['Logins (30 d)',o.logins_30d,'successful'],['Pending requests',o.signups_pending,o.signups_spam+' spam blocked']].map(([l,v,s])=>`<div class="tile"><div class="v">${v}</div><div class="l">${l}</div><div class="l">${s}</div></div>`).join('')}
+  </div><div class="card"><div class="bar"><b>Studies per week</b><span class="muted">last 12 weeks — real counts only</span></div><canvas id="wk" height="90"></canvas></div>`;
+  new Chart(document.getElementById('wk'),{type:'bar',data:{labels:o.studies_by_week.map(w=>w.week_start.slice(5)),datasets:[{label:'studies',data:o.studies_by_week.map(w=>w.studies),backgroundColor:'#57B7A3'}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94A3B8'},grid:{color:'#3F4B5E'}},y:{beginAtZero:true,ticks:{color:'#94A3B8',precision:0},grid:{color:'#3F4B5E'}}}}});}
+
+// ---- Orgs ----
+let ORGS=[];
+async function vOrgs(){ORGS=await api('/admin/orgs');
+  main.innerHTML=`<div class="card"><div class="bar"><b>Organizations</b><span class="muted">${ORGS.length}</span><input id="oq" placeholder="filter…" oninput="renderOrgs()" style="margin-left:auto"></div><div id="ot"></div></div>`;renderOrgs();}
+function renderOrgs(){const q=(document.getElementById('oq')?.value||'').toLowerCase();
+  document.getElementById('ot').innerHTML=`<table><tr><th>Organization</th><th>Region</th><th>Access</th><th>Users</th><th>Studies</th><th>Last study</th><th>Status</th><th>Actions</th></tr>${ORGS.filter(o=>o.name.toLowerCase().includes(q)).map(o=>`<tr>
+   <td><b>${esc(o.name)}</b>${o.free_tier_type?`<br><span class="pill n">Heal for All · ${esc(o.free_tier_type)}${o.free_tier_verified?' ✓':''}</span>`:''}${o.status_note?`<br><span class="muted">${esc(o.status_note)}</span>`:''}</td>
+   <td>${esc(o.region)}</td><td>${esc(o.access_mode)}</td><td>${o.users_active}/${o.users}</td><td>${o.studies_30d} <span class="muted">/ ${o.studies_total}</span></td><td>${fmt(o.last_study_at)}</td><td>${pill(o.is_active)}</td>
+   <td><button class="b bl" onclick="showUsers('${o.id}')">Users</button>
+       ${o.is_active?`<button class="b r" onclick="orgAct('${o.id}',false)">Suspend</button>`:`<button class="b t" onclick="orgAct('${o.id}',true)">Reactivate</button>`}
+       <button class="b g" onclick="orgRename('${o.id}','${esc(o.name).replace(/'/g,"\\'")}')">Rename</button></td></tr>`).join('')}</table>`;}
+async function orgAct(id,active){const note=active?null:(prompt('Reason for suspension (sent to nobody, stored in audit):')??null);if(!active&&note===null)return;
+  try{await api('/admin/orgs/'+id,{method:'PATCH',body:JSON.stringify({is_active:active,status_note:active?'':note})});toast(active?'Organization reactivated':'Organization suspended — all its users are locked out');vOrgs();}catch(e){toast(e.message)}}
+async function orgRename(id,cur){const n=prompt('New organization name:',cur);if(!n||n===cur)return;try{await api('/admin/orgs/'+id,{method:'PATCH',body:JSON.stringify({name:n})});toast('Renamed');vOrgs();}catch(e){toast(e.message)}}
+function showUsers(orgId){setTab('users');vUsers(orgId);}
+
+// ---- Users ----
+let USERS=[];
+async function vUsers(orgId){const qs=orgId?('?org_id='+orgId):'';USERS=await api('/admin/users'+qs);
+  if(!ORGS.length){try{ORGS=await api('/admin/orgs');}catch(_){}}
+  main.innerHTML=`<div class="card"><div class="bar"><b>Users</b><span class="muted">${USERS.length}</span>
+   <select id="uorg" onchange="vUsers(this.value||undefined)"><option value="">All organizations</option>${ORGS.map(o=>`<option value="${o.id}" ${o.id===orgId?'selected':''}>${esc(o.name)}</option>`).join('')}</select>
+   <input id="uq" placeholder="search name / email…" oninput="renderUsers()" style="margin-left:auto"></div><div id="ut"></div></div>`;renderUsers();}
+function renderUsers(){const q=(document.getElementById('uq')?.value||'').toLowerCase();
+  document.getElementById('ut').innerHTML=`<table><tr><th>User</th><th>Organization</th><th>Role</th><th>Studies</th><th>Last login</th><th>Status</th><th>Actions</th></tr>${USERS.filter(u=>(u.email+' '+u.full_name).toLowerCase().includes(q)).map(u=>`<tr>
+   <td><b>${esc(u.full_name)}</b><br><span class="muted">${esc(u.email)}</span>${u.blocked_note?`<br><span class="pill off">blocked: ${esc(u.blocked_note)}</span>`:''}</td>
+   <td>${esc(u.org_name)}</td>
+   <td><select onchange="userRole('${u.id}',this.value)">${['admin','radiologist','technologist','referring'].map(r=>`<option ${r===u.role?'selected':''}>${r}</option>`).join('')}</select></td>
+   <td>${u.studies}</td><td>${fmt(u.last_login_at)}</td><td>${pill(u.is_active)}${u.totp_enabled?' <span class="pill n">2FA</span>':''}</td>
+   <td>${u.is_active?`<button class="b a" onclick="userAct('${u.id}',false,false)">Deactivate</button><button class="b r" onclick="userAct('${u.id}',false,true)">Block</button>`:`<button class="b t" onclick="userAct('${u.id}',true,false)">Reactivate</button>`}
+       <button class="b g" onclick="userReset('${u.id}','${esc(u.email)}')">Reset password</button></td></tr>`).join('')}</table>`;}
+async function userAct(id,active,block){let body={is_active:active};
+  if(block){const n=prompt('Block reason (stored, shown here):');if(n===null)return;body.blocked_note=n||'blocked by admin';}
+  if(active)body.blocked_note=null;
+  try{await api('/admin/users/'+id,{method:'PATCH',body:JSON.stringify(body)});toast(active?'User reactivated':(block?'User blocked — sessions revoked':'User deactivated'));vUsers(document.getElementById('uorg')?.value||undefined);}catch(e){toast(e.message)}}
+async function userRole(id,role){try{await api('/admin/users/'+id,{method:'PATCH',body:JSON.stringify({role})});toast('Role → '+role);}catch(e){toast(e.message)}}
+async function userReset(id,email){if(!confirm('Reset password for '+email+' and email a temporary one?'))return;
+  try{const r=await api('/admin/users/'+id+'/reset-password',{method:'POST'});toast((r.email_sent?'Emailed. ':'EMAIL NOT SENT. ')+'Temp password: '+r.temp_password,12000);}catch(e){toast(e.message)}}
+
+// ---- Signups ----
+async function vSignups(st='pending'){const rows=await api('/admin/signups?status='+st);
+  main.innerHTML=`<div class="card"><div class="bar"><b>Access requests</b>${['pending','approved','rejected','spam','all'].map(s=>`<button class="b ${s===st?'t':'g'}" onclick="vSignups('${s}')">${s}</button>`).join('')}<span class="muted" style="margin-left:auto">${rows.length}</span></div>
+  <table><tr><th>Applicant</th><th>Organization</th><th>Interest</th><th>Message</th><th>Submitted</th><th>Status</th><th>Actions</th></tr>${rows.map(r=>`<tr>
+   <td><b>${esc(r.first_name)} ${esc(r.last_name)}</b><br><span class="muted">${esc(r.email)} · ${esc(r.role_text)}</span></td><td>${esc(r.org_name)}<br><span class="muted">${esc(r.country)}</span></td><td>${esc(r.interest||'—')}</td>
+   <td style="max-width:280px">${esc(r.message||'—')}${r.review_note?`<br><span class="muted">${esc(r.review_note)}</span>`:''}</td><td>${fmt(r.created_at)}</td><td><span class="pill ${r.status==='pending'?'n':(r.status==='approved'?'on':'off')}">${r.status}</span></td>
+   <td>${r.status==='pending'?`<textarea id="n-${r.id}" placeholder="note to applicant (optional)" style="width:200px;height:48px"></textarea><br><button class="b t" onclick="sigAct('${r.id}','approve')">Approve</button><button class="b r" onclick="sigAct('${r.id}','reject')">Reject</button>`:'—'}</td></tr>`).join('')}</table></div>`;}
+async function sigAct(id,kind){const note=document.getElementById('n-'+id).value.trim()||null;if(kind==='reject'&&!confirm('Reject and email a decline?'))return;
+  try{const r=await api(`/admin/signups/${id}/${kind}`,{method:'POST',body:JSON.stringify({note})});toast(r.ok?(kind==='approve'?`Approved. Welcome email ${r.email_sent?'sent':'NOT sent'}${r.temp_password?' · temp pw '+r.temp_password:''}`:'Rejected, decline email '+(r.email_sent?'sent':'NOT sent')):r.error,10000);vSignups('pending');}catch(e){toast(e.message)}}
+
+// ---- Audit ----
+async function vAudit(){const q=new URLSearchParams();const a=document.getElementById('aact')?.value;if(a)q.set('action',a);
+  const rows=await api('/admin/audit?'+q);
+  main.innerHTML=`<div class="card"><div class="bar"><b>Audit log</b><input id="aact" placeholder="action prefix e.g. auth.login, study., admin." value="${esc(a||'')}" onkeydown="if(event.key==='Enter')vAudit()"><button class="b g" onclick="vAudit()">Filter</button><span class="muted" style="margin-left:auto">${rows.length} most recent</span></div>
+  <table><tr><th>When</th><th>Action</th><th>Actor</th><th>Organization</th><th>Resource</th><th>IP</th><th>OK</th><th>Details</th></tr>${rows.map(r=>`<tr><td class="mono">${fmt(r.at)}</td><td class="mono">${esc(r.action)}</td><td>${esc(r.actor||'—')}</td><td>${esc(r.org||'—')}</td><td class="mono">${esc(r.resource_type)}${r.resource_id?' '+r.resource_id.slice(0,8):''}</td><td class="mono">${esc(r.ip||'')}</td><td>${r.success?'✓':'<span style="color:var(--red)">✗</span>'}</td><td class="mono muted" style="max-width:320px;word-break:break-all">${r.extra?esc(JSON.stringify(r.extra)):''}</td></tr>`).join('')}</table></div>`;}
+
+// ---- Usage ----
+async function vUsage(){const u=await api('/admin/usage');
+  main.innerHTML=`<div class="card"><div class="bar"><b>Studies by modality</b><span class="muted">last 90 days</span></div><canvas id="c1" height="90"></canvas></div>
+  <div class="card"><div class="bar"><b>Study status</b><span class="muted">all time</span></div>${u.by_status.map(s=>`<span class="pill n" style="margin:4px">${esc(s.status)} · ${s.n}</span>`).join('')||'<span class="muted">none yet</span>'}</div>
+  <div class="card"><div class="bar"><b>Scans per organization per month</b><span class="muted">from usage_counters — the free-tier source of truth</span></div>
+  <table><tr><th>Month</th><th>Organization</th><th>Scans</th></tr>${u.per_org_month.map(r=>`<tr><td>${r.month.slice(0,7)}</td><td>${esc(r.org)}</td><td>${r.scans}</td></tr>`).join('')||'<tr><td colspan=3 class="muted">no counters recorded yet</td></tr>'}</table></div>`;
+  new Chart(document.getElementById('c1'),{type:'bar',data:{labels:u.by_modality_90d.map(m=>m.modality),datasets:[{data:u.by_modality_90d.map(m=>m.n),backgroundColor:'#3B82F6'}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94A3B8'},grid:{color:'#3F4B5E'}},y:{beginAtZero:true,ticks:{color:'#94A3B8',precision:0},grid:{color:'#3F4B5E'}}}}});}
+
+// ---- tabs ----
+const VIEWS={overview:vOverview,orgs:vOrgs,users:()=>vUsers(),signups:()=>vSignups(),audit:vAudit,usage:vUsage};
+function setTab(t){document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));}
+document.getElementById('tabs').onclick=e=>{const t=e.target.dataset.t;if(!t)return;setTab(t);main.innerHTML='<div class="card">Loading…</div>';VIEWS[t]().catch(err=>{if(err.message!=='403')main.innerHTML='<div class="card">'+esc(err.message)+'</div>';});};
+vOverview().catch(err=>{if(err.message!=='403')main.innerHTML='<div class="card">'+esc(err.message)+'</div>';});
+</script></body></html>
