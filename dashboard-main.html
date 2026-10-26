@@ -906,8 +906,9 @@
         .modal {
             background: var(--bg-secondary);
             border-radius: 20px;
-            width: 800px;
-            max-height: 90vh;
+            width: 1100px;
+            max-width: 96vw;
+            max-height: 94vh;
             overflow: hidden;
             border: 1px solid var(--border);
             box-shadow: var(--shadow-lg);
@@ -1155,7 +1156,8 @@
 
         .success-pdf-frame {
             width: 100%;
-            height: 580px;
+            height: calc(94vh - 260px);
+            min-height: 600px;
             border: 1px solid var(--border);
             border-radius: 10px;
             background: #fff;
@@ -2117,7 +2119,8 @@
         
         // PATCH:modal-reuse v1 — return the modal from success mode to form mode
         // so several studies can be run back-to-back without a page reload.
-        function resetModalToForm() {
+        function resetModalToForm(opts) {
+            const keepFields = !!(opts && opts.keepFields);   // MODAL_KEEP_V1
             // Release the previous PDF blob (renderSuccessScreen parks it here).
             const openBtn = document.getElementById('ssOpenTabBtn');
             if (openBtn && openBtn.dataset.blobUrl) {
@@ -2170,6 +2173,11 @@
 
             // Clear patient-specific fields. Language is left as-is:
             // a user running a batch usually wants the same settings each time.
+            // MODAL_KEEP_V1: on reopen (keepFields) nothing below is cleared except
+            // consent, which is a per-study acknowledgement and must be re-ticked.
+            const consentKeep = document.getElementById('modal-consent');
+            if (consentKeep) consentKeep.checked = false;
+            if (keepFields) { if (typeof checkFormValidity === 'function') checkFormValidity(); return; }
             const _ah = document.getElementById('modal-age-hint');
             if (_ah) _ah.textContent = '';
             ['modal-name', 'modal-mrn', 'modal-age', 'modal-dob', 'modal-referring'].forEach(function (id) {
@@ -2202,7 +2210,7 @@
         function closeModal() {
             document.getElementById('analysisModal').classList.remove('active');
             // Reset on close too, so reopening never shows the previous result.
-            try { resetModalToForm(); } catch (e) { console.warn('[modal-reuse] reset failed:', e); }
+            try { resetModalToForm({ keepFields: true }); } catch (e) { console.warn('[modal-reuse] reset failed:', e); }
         }
         
         // Modality selection
