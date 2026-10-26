@@ -2084,6 +2084,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <a href="#" id="modalClearLink" style="font-size:13px;color:var(--text-secondary,#94A3B8);margin-right:auto;align-self:center;text-decoration:underline;">Clear form</a>
                 <button class="btn-primary" id="analyzeBtn" disabled>
                     <i class="fas fa-magic" style="margin-right: 8px;"></i>
                     Start Analysis
@@ -3591,6 +3592,17 @@
     .then(function (r) { if (r.ok) { el.style.display = ''; } })
     .catch(function () {});
   el.addEventListener('click', function (e) { e.preventDefault(); e.stopImmediatePropagation(); window.location.href = 'admin.html'; }, true);
+})();
+</script>
+<script>
+// MODAL_KEEP_V1 — explicit clear, for switching patients without a completed upload.
+(function () {
+  var a = document.getElementById('modalClearLink'); if (!a) return;
+  a.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (!confirm('Clear all patient details and the selected file?')) return;
+    try { resetModalToForm(); } catch (err) { console.warn('[clear-form]', err); }
+  });
 })();
 </script>
 </body>
