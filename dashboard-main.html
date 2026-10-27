@@ -2911,7 +2911,10 @@
             }
             if (doneBtn) {
                 doneBtn.addEventListener('click', () => {
-                    window.location.reload();
+                    // MODAL_KEEP_V1: close without reloading the page, refresh the worklist in place.
+                    try { closeModal(); } catch (_) {}
+                    ['loadStudies','loadDashboard','refreshDashboard','fetchStudies','loadWorklist','loadRecentStudies','renderStudies']
+                        .forEach(fn => { if (typeof window[fn] === 'function') { try { window[fn](); } catch (_) {} } });
                 });
             }
             const newBtn = document.getElementById('ssNewBtn');
